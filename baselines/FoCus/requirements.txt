@@ -1,0 +1,14 @@
+torch==1.8.1+cu111
+datasets==2.0.0
+nltk==3.7
+rank-bm25==0.2.2
+rouge-score==0.0.4
+scikit-learn==1.0.2
+sacrebleu==2.0.0
+setproctitle==1.3.2
+sentencepiece==0.1.96
+transformers==4.22.2
+torch-optimizer==0.3.0
+pycorenlp==0.3.0
+pytorch-lightning==1.5.10
+wandb==0.13.1
