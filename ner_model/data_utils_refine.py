@@ -6,7 +6,6 @@ from torch.utils.data import DataLoader, TensorDataset
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-from baselines.FoCus.utils_focus import get_dataset_refine
 
 import json
 import random

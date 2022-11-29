@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss, KLDivLoss
 from transformers import BartForConditionalGeneration
-from torch.nn import Sigmoid
+from torch.nn import Softmax
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +52,11 @@ class BartEncDec(BartForConditionalGeneration):
 
         cls_loss = None
         if cls_labels is not None:
-            loss_fct = BCEWithLogitsLoss(ignore_index=-1)
+            loss_fct = CrossEntropyLoss(ignore_index=-1)
             cls_loss = loss_fct(cls_logits, cls_labels.type_as(cls_logits))
-            sigmoid = Sigmoid()
-            cls_pred_sig = sigmoid(cls_logits)
-            cls_pred = (cls_pred_sig > 0.5).float()
+            softmax = Softmax()
+            cls_softmax = softmax(cls_logits)
+            _, cls_pred = torch.topk(cls_softmax, k=1, dim=-1)
             cls_acc = torch.sum(cls_labels.type_as(cls_pred)==cls_pred) / (len(cls_labels.view(-1)) * 1.0)
 
             #output_dict['lm_logits'] = lm_logits

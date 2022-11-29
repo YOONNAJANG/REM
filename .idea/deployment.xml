@@ -5,7 +5,7 @@
       <paths name="yoonna@163.152.163.180:55022 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/data/yoonna/Rewriter" local="$PROJECT_DIR$" />
+            <mapping deploy="/data/yoonna/Refiner" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
