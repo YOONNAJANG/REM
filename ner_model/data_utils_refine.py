@@ -5,7 +5,10 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 import sys
 import os
+import copy
+from transformers import cached_path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+# from baselines.FoCus.utils_focus import get_dataset_refine
 
 import json
 import random
@@ -13,6 +16,7 @@ from random import randrange
 
 
 special_tokens_focus = {'machine_token':'<machine>', 'human_token':'<human>', 'persona_token':'<persona>', 'knowledge_token':'<knowledge>'}
+# special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
 logger = logging.getLogger(__file__)
@@ -51,37 +55,41 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
     persona_st = tokenizer.convert_tokens_to_ids(tokenizer.persona_token)
     knowledge_st = tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)
 
-    history, reply = history[:-1], history[-1]
-    history_list = history
-    history_context, history_question = history_list[:-1], history_list[-1]
-    if len(history_context) == 0:
-        history_context = [1]
-    else:
-        history_context = list(chain(*history_context))
+    history_, reply = history[:-1], history[-1]
 
-    history_list_new = []
-    history_list_new.append(history_context)
-    history_list_new.append(history_question)
-
-    history = [human_st if i % 2 == 0 else machine_st + s for i, s in enumerate(history)]
+    # history_list = history
+    # history_context, history_question = history_list[:-1], history_list[-1]
+    # if len(history_context) == 0:
+    #     history_context = [1]
+    # else:
+    #     history_context = list(chain(*history_context))
+    #
+    # history_list_new = []
+    # history_list_new.append(history_context)
+    # history_list_new.append(history_question)
+    #
+    # history = [human_st if i % 2 == 0 else machine_st + s for i, s in enumerate(history)]
 
     gold_knowledge =golden_knowledge
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     # print(len(gold_knowledge), gold_knowledge)
     # print(len(knowledge_label),knowledge_label)
-    if len(history) == 1:
-        # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + history
-        enc_sequence = gold_knowledge + persona_cans
-        enc_sequence.extend(history)
-        dec_sequence = [dec_bos] + reply + [eos]
+    history_ = [human_st] + history_[0]
 
-    else:
-        # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + [list(chain(*history))]
-        enc_sequence = gold_knowledge +persona_cans
-        enc_sequence.extend(list(chain(*history)))
-        dec_sequence = [dec_bos] + reply + [eos]
-    # print(enc_sequence)
+    # if len(history) == 1:
+        # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + history
+    enc_sequence = gold_knowledge + persona_cans
+    enc_sequence.extend(history_)
+
+    dec_sequence = [dec_bos] + reply + [eos]
+    #
+    # else:
+    #     # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + [list(chain(*history))]
+    #     enc_sequence = gold_knowledge +persona_cans
+    #     enc_sequence.extend(list(chain(*history)))
+    #     dec_sequence = [dec_bos] + reply + [eos]
+    # # print(enc_sequence)
 
     assert len(persona_ner_label) == len(persona_cans)
 
@@ -90,9 +98,9 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
     # print(dec_sequence)
     # print(ner_label)
     # print()
-
+    ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
     instance = dict()
-    instance['input_ids'] = enc_sequence
+    instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
     # instance['input_ids'] = list(chain(*enc_sequence))
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
@@ -102,10 +110,10 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
 
 def dataloader_focus(args, tokenizer):
 
-    train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner/our_dev.json"
-    train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner/our_dev_cache.tar.gz"
-    dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner/our_dev.json"
-    dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner/our_dev_cache.tar.gz"
+    train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_train.json"
+    train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_train_cache.tar.gz"
+    dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev.json"
+    dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev_cache.tar.gz"
 
     regen_data = get_dataset_refine(tokenizer, train_dataset_path=train_dataset_path,
                                     train_dataset_cache=train_dataset_cache,
@@ -149,6 +157,7 @@ def dataloader_focus(args, tokenizer):
 
 def pad_dataset_focus(dataset, padding):
     max_l = max(len(x) for x in dataset["input_ids"])
+    # max_ner_l = max(len(x) for x in dataset["ner_labels"])
     max_dec_l = max(len(x) for x in dataset["decoder_input_ids"])
     dataset['input_ids'] = [x + [padding] * (max_l - len(x)) for x in dataset['input_ids']]
     dataset['ner_labels'] = [x + [-1] * (max_l - len(x)) for x in dataset['ner_labels']]
