@@ -46,7 +46,7 @@ def add_special_tokens_test(model, congen_model, tokenizer, special_tokens):
 
 
 
-def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label): #gk|p|history|u' -> u
+def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
     bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
     dec_bos = 2  # tokenizer.decoder_start_token_id
     # input_ids = [bos] + gt_knowledge + [eos] + corrputed[0] + [eos]
@@ -56,49 +56,25 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
     knowledge_st = tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)
 
     history_, reply = history[:-1], history[-1]
-
-    # history_list = history
-    # history_context, history_question = history_list[:-1], history_list[-1]
-    # if len(history_context) == 0:
-    #     history_context = [1]
-    # else:
-    #     history_context = list(chain(*history_context))
-    #
-    # history_list_new = []
-    # history_list_new.append(history_context)
-    # history_list_new.append(history_question)
-    #
-    # history = [human_st if i % 2 == 0 else machine_st + s for i, s in enumerate(history)]
-
-    gold_knowledge =golden_knowledge
+    gold_knowledge = golden_knowledge[1:]
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
-    # print(len(gold_knowledge), gold_knowledge)
-    # print(len(knowledge_label),knowledge_label)
     history_ = [human_st] + history_[0]
-
-    # if len(history) == 1:
-        # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + history
-    enc_sequence = gold_knowledge + persona_cans
-    enc_sequence.extend(history_)
+    if args.ptuning == False:
+        enc_sequence = gold_knowledge + persona_cans
+        enc_sequence.extend(history_)
+    else:
+        pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
+        enc_sequence = [bos] + [pseudo_token_id * template[0]] + gold_knowledge + [pseudo_token_id * template[1]] + persona_cans + [pseudo_token_id * template[2]]
+        enc_sequence.extend(history_)
 
     dec_sequence = [dec_bos] + reply + [eos]
-    #
-    # else:
-    #     # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + [list(chain(*history))]
-    #     enc_sequence = gold_knowledge +persona_cans
-    #     enc_sequence.extend(list(chain(*history)))
-    #     dec_sequence = [dec_bos] + reply + [eos]
-    # # print(enc_sequence)
 
     assert len(persona_ner_label) == len(persona_cans)
 
-    ner_label = [bos] + knowledge_label + persona_ner_label
-    # print(enc_sequence)
-    # print(dec_sequence)
-    # print(ner_label)
-    # print()
+    ner_label = [bos] + [-1 * template[0]] + knowledge_label + [-1 * template[1]] + persona_ner_label + [-1 * template[2]]
     ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
+
     instance = dict()
     instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
     # instance['input_ids'] = list(chain(*enc_sequence))
@@ -123,7 +99,6 @@ def dataloader_focus(args, tokenizer):
     print("Build inputs and labels")
     datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
     for (key, value) in regen_data.items():
-
         for data in value:  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
             dialogID = data['dialogID']
             persona = data['persona']
@@ -134,7 +109,7 @@ def dataloader_focus(args, tokenizer):
                 persona_ner_label = utt['persona_ner_label']
                 golden_knowledge = utt['golden_knowledge']
                 knowledge_ner_label = utt['knowledge_ner_label']
-                instance = build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golden_knowledge,
+                instance = build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge,
                                              knowledge_ner_label)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)

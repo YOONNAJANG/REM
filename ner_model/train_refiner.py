@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 import sys
 
 
@@ -18,6 +18,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Learning
 from transformers import AdamW
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
 from collections import Counter, defaultdict
+from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+from torch.nn import Softmax
+
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
@@ -31,6 +34,7 @@ class Model(LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.save_hyperparameters()
+        self.pseudo_token = self.hparams.pseudo_token
 
         from transformers import BartTokenizer, BartConfig
         from refiner_modules import BartEncDec
@@ -41,15 +45,65 @@ class Model(LightningModule):
         self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
         #add_special_tokens_(self.model, self.tokenizer, special_tokens=)
 
+        if self.hparams.ptuning==True:
+            for name, param in self.model.named_parameters():
+                param.requires_grad = False
+                print('frozen params: ', name)
+            self.embeddings = get_embedding_layer(self.hparams, self.model)
+            # set allowed vocab set
+            self.vocab = self.tokenizer.get_vocab()
+            self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
+            self.template = tuple([int(item) for item in self.hparams.template.split(',')])
+            # load prompt encoder
+            self.hidden_size = self.embeddings.embedding_dim
+            self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+            self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
+            self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
+            self.spell_length = sum(self.template)
+            self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
+            self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+
 
     def step(self, batch, batch_idx):
+        # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        if self.hparams.ptuning == True:
+            input_embeds = self.embed_inputs(batch['input_ids'])
+            if 'input_ids' in batch:
+                del batch['input_ids']
+                batch['inputs_embeds'] = input_embeds
+            output = self.model(**batch)
 
-        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-        output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
+        else:
+            output = self.model(**batch)
+
+            # output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
+
         return output
 
+
+    def embed_inputs(self, queries):
+        bz = queries.shape[0] #batchsize
+        queries_for_embedding = queries.clone()
+        queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
+        raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
+        blocked_indices = (queries == self.pseudo_token_id)
+        blocked_indices =  torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
+        replace_embeds = self.prompt_encoder() #spell_length, embdim
+        for bidx in range(bz):
+            for i in range(self.prompt_encoder.spell_length):
+                raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
+        return raw_embeds
+
+
     def training_step(self, batch, batch_idx):
-        result = self.step(batch, batch_idx)
+        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        inputs = {
+            'input_ids':input_ids,
+            'decoder_input_ids':decoder_input_ids,
+            'lm_labels':lm_labels,
+            'ner_labels':ner_labels
+        }
+        result = self.step(inputs, batch_idx)
         lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
         loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
         self.log('train_loss', loss)
@@ -61,13 +115,59 @@ class Model(LightningModule):
         return result
 
     def validation_step(self, batch, batch_idx):
-        result = self.step(batch, batch_idx)
-        #print(result.items())
-        result = {k: v.detach().cpu() for k, v in result.items()}
-        self.log('valid_lm_loss', result['lm_loss'])
-        self.log('valid_ner_loss', result['ner_loss'])
+        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        inputs = {
+            'input_ids': input_ids,
+            'decoder_input_ids': decoder_input_ids,
+            # 'lm_labels': lm_labels,
+            # 'ner_labels': ner_labels
+        }
+        result = self.step(inputs, batch_idx)
 
-        return result
+        #print(result.items())
+        # result = {k: v.detach().cpu() for k, v in result.items()}
+
+        lm_logits = result['lm_logits']
+        ner_logits = result['ner_logits']
+        softmax = Softmax(dim=-1)
+        lm_pred = softmax(lm_logits)
+        lm_val, lm_pred_idx = torch.topk(lm_pred, k=1, dim=-1)
+        lm_pred_idx = lm_pred_idx.squeeze(-1)
+        mask = (lm_labels != -100)
+        lm_labels_only = [lm_labels[mask].tolist()]
+        lm_pred_idx = lm_pred_idx[mask].tolist()
+        lm_criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
+        lm_loss = lm_criterion(lm_logits.view(-1, self.model.config.vocab_size), lm_labels.view(-1))
+
+        ner_criterion = torch.nn.CrossEntropyLoss(ignore_index=-1)
+        ner_loss = ner_criterion(ner_logits.view(-1, 6), ner_labels.view(-1).long())
+
+        hst_index = (input_ids == 50266).nonzero(as_tuple=True)[1]
+
+        ner_acc = 0
+        for i in range(ner_logits.shape[0]):
+            # print("hst_index[i]:  ",hst_index[i])
+            logits_clean = ner_logits[i][:hst_index[i].item()]
+            label_clean = ner_labels[i][:hst_index[i].item()]
+            # print(logits_clean.size())
+            # print(label_clean.size())
+
+            predictions = logits_clean.argmax(dim=1)
+            # print(predictions)
+            # print(label_clean)
+            acc = (predictions == label_clean).float().mean()
+            ner_acc += acc
+
+        self.log('valid_lm_loss', lm_loss)
+        self.log('valid_ner_loss', ner_loss)
+
+        result_dict = {
+            'lm_loss':lm_loss.detach().cpu(),
+            'ner_loss':ner_loss.detach().cpu(),
+            'ner_acc':ner_acc.detach().cpu()
+        }
+
+        return result_dict
 
     def epoch_end(self, outputs, state='train'):
         if state=='train' or state=='val':
@@ -173,6 +273,15 @@ def main():
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/regen_add_ner/", help="default value for PLMs")
+
+
+    #for p-tuning
+    parser.add_argument("--ptuning", type=bool, default=False)
+    parser.add_argument("--template", type=str, default="3,3,3") #prompt size
+    parser.add_argument("--lstm_dropout", type=float, default=0.0)
+    parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
+    parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
+
     args = vars(parser.parse_args())
     print("Using PyTorch Ver", torch.__version__)
     print("Fix Seed:", args['random_seed'])

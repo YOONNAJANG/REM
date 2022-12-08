@@ -45,9 +45,11 @@ class BartEncDec(BartForConditionalGeneration):
         # print(input_ids)
         outputs = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias  # batch, decseqlen, dim
+        output_dict['lm_logits'] = lm_logits
         ner_logits_cls = outputs['encoder_last_hidden_state']  # batch, encseqlen, dim
         ner_logits = self.summary(ner_logits_cls).squeeze(-1)
         output_dict['ner_logits'] = ner_logits
+
 
 
 
