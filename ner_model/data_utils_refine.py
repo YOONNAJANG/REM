@@ -56,25 +56,24 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
     knowledge_st = tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)
 
     history_, reply = history[:-1], history[-1]
-    gold_knowledge = golden_knowledge[1:]
+    gold_knowledge = golden_knowledge
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     history_ = [human_st] + history_[0]
+    assert len(persona_ner_label) == len(persona_cans)
+
     if args.ptuning == False:
         enc_sequence = gold_knowledge + persona_cans
         enc_sequence.extend(history_)
+        ner_label = knowledge_label + persona_ner_label
+
     else:
         pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
-        enc_sequence = [bos] + [pseudo_token_id * template[0]] + gold_knowledge + [pseudo_token_id * template[1]] + persona_cans + [pseudo_token_id * template[2]]
+        enc_sequence = [bos] + [pseudo_token_id * template[0]] + gold_knowledge[1:] + [pseudo_token_id * template[1]] + persona_cans + [pseudo_token_id * template[2]]
         enc_sequence.extend(history_)
-
+        ner_label = [-1] + [-1 * template[0]] + knowledge_label[1:] + [-1 * template[1]] + persona_ner_label + [-1 * template[2]]
     dec_sequence = [dec_bos] + reply + [eos]
-
-    assert len(persona_ner_label) == len(persona_cans)
-
-    ner_label = [bos] + [-1 * template[0]] + knowledge_label + [-1 * template[1]] + persona_ner_label + [-1 * template[2]]
     ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
-
     instance = dict()
     instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
     # instance['input_ids'] = list(chain(*enc_sequence))
@@ -142,7 +141,7 @@ def pad_dataset_focus(dataset, padding):
 
 
 def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_dataset_path, dev_dataset_cache):
-    ner_label_map = {"B":1, "I":2, "O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
+    ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
 
     token_char = tokenizer.convert_ids_to_tokens(5)[0]
     # print(token_char)
@@ -366,6 +365,14 @@ def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_da
                         persona_can_enc = [tokenizer.convert_tokens_to_ids(sentence) for sentence in persona_can_enc]
                         knowledge_can_enc = tokenizer.convert_tokens_to_ids(knowledge_can_enc)
                         # print(knowledge_can_enc)
+                        ######special token 없애기###########
+
+                        for i, l in enumerate(persona_ner_labels_enc):
+                            if l in [3,4,5]:
+                                persona_ner_labels_enc[i] = -1
+                        for i, l in enumerate(knowledge_ner_labels_enc):
+                            if l in [3,4,5]:
+                                knowledge_ner_labels_enc[i] = -1
 
                         dial_new["dialog"] = dial_enc
                         dial_new["persona_grounding"] = persona_ground_enc
@@ -391,7 +398,6 @@ def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_da
                 torch.save(dataset, train_dataset_cache)
             else:
                 torch.save(dataset, dev_dataset_cache)
-
     return all_dataset
 
 

@@ -109,6 +109,15 @@ class Model(LightningModule):
         self.log('train_loss', loss)
         self.log('train_lm_loss', result['lm_loss'])
         self.log('train_ner_loss', result['ner_loss'])
+        self.log('train_ner_acc', result["ner_results"]["accuracy"])
+        self.log('train_ner_f1', result["ner_results"]["f1"])
+
+        wandb.log({'train_loss': loss})
+        wandb.log({'train_lm_loss': result['lm_loss']})
+        wandb.log({'train_ner_loss': result['ner_loss']})
+        wandb.log({'train_ner_acc': result["ner_results"]["accuracy"]})
+        wandb.log({'train_ner_f1': result["ner_results"]["f1"]})
+
         result['loss'] = loss
         result['lm_loss'] = lm_loss
         result['ner_loss'] = ner_loss
@@ -119,85 +128,66 @@ class Model(LightningModule):
         inputs = {
             'input_ids': input_ids,
             'decoder_input_ids': decoder_input_ids,
-            # 'lm_labels': lm_labels,
-            # 'ner_labels': ner_labels
+            'lm_labels': lm_labels,
+            'ner_labels': ner_labels
         }
-        result = self.step(inputs, batch_idx)
+        results = self.step(inputs, batch_idx)
 
-        #print(result.items())
-        # result = {k: v.detach().cpu() for k, v in result.items()}
-
-        lm_logits = result['lm_logits']
-        ner_logits = result['ner_logits']
-        softmax = Softmax(dim=-1)
-        lm_pred = softmax(lm_logits)
-        lm_val, lm_pred_idx = torch.topk(lm_pred, k=1, dim=-1)
-        lm_pred_idx = lm_pred_idx.squeeze(-1)
-        mask = (lm_labels != -100)
-        lm_labels_only = [lm_labels[mask].tolist()]
-        lm_pred_idx = lm_pred_idx[mask].tolist()
-        lm_criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
-        lm_loss = lm_criterion(lm_logits.view(-1, self.model.config.vocab_size), lm_labels.view(-1))
-
-        ner_criterion = torch.nn.CrossEntropyLoss(ignore_index=-1)
-        ner_loss = ner_criterion(ner_logits.view(-1, 6), ner_labels.view(-1).long())
-
-        hst_index = (input_ids == 50266).nonzero(as_tuple=True)[1]
-
-        ner_acc = 0
-        for i in range(ner_logits.shape[0]):
-            # print("hst_index[i]:  ",hst_index[i])
-            logits_clean = ner_logits[i][:hst_index[i].item()]
-            label_clean = ner_labels[i][:hst_index[i].item()]
-            # print(logits_clean.size())
-            # print(label_clean.size())
-
-            predictions = logits_clean.argmax(dim=1)
-            # print(predictions)
-            # print(label_clean)
-            acc = (predictions == label_clean).float().mean()
-            ner_acc += acc
-
-        self.log('valid_lm_loss', lm_loss)
-        self.log('valid_ner_loss', ner_loss)
-
-        result_dict = {
-            'lm_loss':lm_loss.detach().cpu(),
-            'ner_loss':ner_loss.detach().cpu(),
-            'ner_acc':ner_acc.detach().cpu()
-        }
-
-        return result_dict
+        result = {}
+        for k, v in results.items():
+            if k != "ner_results":
+                result[k] = v.detach().cpu()
+            else:
+                result[k] = v
+        self.log('valid_lm_loss', result['lm_loss'])
+        self.log('valid_ner_loss', result['ner_loss'])
+        self.log('valid_ner_acc', result["ner_results"]["accuracy"])
+        self.log('valid_ner_f1', result["ner_results"]["f1"])
+        wandb.log({'valid_lm_loss': result['lm_loss']})
+        wandb.log({'valid_ner_loss': result['ner_loss']})
+        wandb.log({'valid_ner_acc': result["ner_results"]["accuracy"]})
+        wandb.log({'valid_ner_f1': result["ner_results"]["f1"]})
 
     def epoch_end(self, outputs, state='train'):
         if state=='train' or state=='val':
             lm_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
             cls_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
             ppl = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
-            acc = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
+            ner_acc = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
+            ner_f1 = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
+
 
             for i in outputs:
                 lm_loss += i['lm_loss']
                 cls_loss += i['ner_loss']
                 ppl += torch.exp(i['lm_loss'])
-                acc += i['ner_acc']
+                ner_acc += i["ner_results"]["accuracy"]
+                ner_f1 += i["ner_results"]["f1"]
 
             lm_loss = lm_loss / len(outputs)
             ner_loss = cls_loss / len(outputs)
             ppl = ppl / len(outputs)
-            acc = acc / len(outputs)
+            ner_acc = ner_acc / len(outputs)
+            ner_f1 = ner_f1 / len(outputs)
 
 
-            result = {'lm_loss': lm_loss, 'ner_loss': ner_loss, 'ppl': ppl, 'acc': acc}
+            result = {'lm_loss': lm_loss, 'ner_loss': ner_loss, 'ppl': ppl, 'ner_acc': ner_acc, 'ner_f1': ner_f1}
 
         return result
+
 
     def train_epoch_end(self, outputs):
         result = self.epoch_end(outputs, state='train')
         self.log('train_lm_loss', result['lm_loss'])
         self.log('train_ner_loss', result['ner_loss'])
         self.log('train_ppl', result['ppl'])
-        self.log('train_acc', result['acc'])
+        self.log('train_ner_acc', result['ner_acc'])
+        self.log('train_ner_f1', result['ner_f1'])
+        wandb.log({'train_lm_loss': result['lm_loss']})
+        wandb.log({'train_ner_loss': result['ner_loss']})
+        wandb.log({'train_ppl': result['ppl']})
+        wandb.log({'train_ner_acc': result['ner_acc']})
+        wandb.log({'train_ner_f1': result['ner_f1']})
         return result
 
     def validation_epoch_end(self, outputs):
@@ -205,7 +195,13 @@ class Model(LightningModule):
         self.log('valid_lm_loss', result['lm_loss'])
         self.log('valid_ner_loss', result['ner_loss'])
         self.log('valid_ppl', result['ppl'])
-        self.log('valid_acc', result['acc'])
+        self.log('valid_ner_acc', result['ner_acc'])
+        self.log('valid_ner_f1', result['ner_f1'])
+        wandb.log({'valid_lm_loss': result['lm_loss']})
+        wandb.log({'valid_ner_loss': result['ner_loss']})
+        wandb.log({'valid_ppl': result['ppl']})
+        wandb.log({'valid_ner_acc': result['ner_acc']})
+        wandb.log({'valid_ner_f1': result['ner_f1']})
         return result
 
     def configure_optimizers(self):
