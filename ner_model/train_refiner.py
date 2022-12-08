@@ -64,6 +64,19 @@ class Model(LightningModule):
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
 
 
+    def embed_inputs(self, queries):
+        bz = queries.shape[0] #batchsize
+        queries_for_embedding = queries.clone()
+        queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
+        raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
+        blocked_indices = (queries == self.pseudo_token_id)
+        blocked_indices =  torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
+        replace_embeds = self.prompt_encoder() #spell_length, embdim
+        for bidx in range(bz):
+            for i in range(self.prompt_encoder.spell_length):
+                raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
+        return raw_embeds
+
     def step(self, batch, batch_idx):
         # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
         if self.hparams.ptuning == True:
@@ -81,18 +94,7 @@ class Model(LightningModule):
         return output
 
 
-    def embed_inputs(self, queries):
-        bz = queries.shape[0] #batchsize
-        queries_for_embedding = queries.clone()
-        queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
-        raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
-        blocked_indices = (queries == self.pseudo_token_id)
-        blocked_indices =  torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
-        replace_embeds = self.prompt_encoder() #spell_length, embdim
-        for bidx in range(bz):
-            for i in range(self.prompt_encoder.spell_length):
-                raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
-        return raw_embeds
+
 
 
     def training_step(self, batch, batch_idx):

@@ -69,9 +69,9 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
 
     else:
         pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
-        enc_sequence = [bos] + [pseudo_token_id * template[0]] + gold_knowledge[1:] + [pseudo_token_id * template[1]] + persona_cans + [pseudo_token_id * template[2]]
+        enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[1] + persona_cans + [pseudo_token_id] * template[2]
         enc_sequence.extend(history_)
-        ner_label = [-1] + [-1 * template[0]] + knowledge_label[1:] + [-1 * template[1]] + persona_ner_label + [-1 * template[2]]
+        ner_label = [-1] + [-1] * template[0] + knowledge_label[1:] + [-1] * template[1] + persona_ner_label + [-1] * template[2]
     dec_sequence = [dec_bos] + reply + [eos]
     ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
     instance = dict()
