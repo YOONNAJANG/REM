@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyun")
 import sys
 
 
@@ -45,17 +45,19 @@ class Model(LightningModule):
     def step(self, batch, batch_idx):
 
         input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-        output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, cls_labels=ner_labels)
+        output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
         return output
 
     def training_step(self, batch, batch_idx):
         result = self.step(batch, batch_idx)
-        lm_loss, cls_loss = result['lm_loss'], result['cls_loss']
-        loss = (lm_loss * self.hparams.lm_coef + cls_loss * self.hparams.cls_coef) / self.hparams.grad_accum
+        lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
+        loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
         self.log('train_loss', loss)
         self.log('train_lm_loss', result['lm_loss'])
-        self.log('train_cls_loss', result['cls_loss'])
+        self.log('train_ner_loss', result['ner_loss'])
         result['loss'] = loss
+        result['lm_loss'] = lm_loss
+        result['ner_loss'] = ner_loss
         return result
 
     def validation_step(self, batch, batch_idx):
@@ -63,7 +65,7 @@ class Model(LightningModule):
         #print(result.items())
         result = {k: v.detach().cpu() for k, v in result.items()}
         self.log('valid_lm_loss', result['lm_loss'])
-        self.log('valid_cls_loss', result['cls_loss'])
+        self.log('valid_ner_loss', result['ner_loss'])
 
         return result
 
@@ -76,24 +78,24 @@ class Model(LightningModule):
 
             for i in outputs:
                 lm_loss += i['lm_loss']
-                cls_loss += i['cls_loss']
+                cls_loss += i['ner_loss']
                 ppl += torch.exp(i['lm_loss'])
-                acc += i['cls_acc']
+                acc += i['ner_acc']
 
             lm_loss = lm_loss / len(outputs)
-            cls_loss = cls_loss / len(outputs)
+            ner_loss = cls_loss / len(outputs)
             ppl = ppl / len(outputs)
             acc = acc / len(outputs)
 
 
-            result = {'lm_loss': lm_loss, 'cls_loss': cls_loss, 'ppl': ppl, 'acc': acc}
+            result = {'lm_loss': lm_loss, 'ner_loss': ner_loss, 'ppl': ppl, 'acc': acc}
 
         return result
 
     def train_epoch_end(self, outputs):
         result = self.epoch_end(outputs, state='train')
         self.log('train_lm_loss', result['lm_loss'])
-        self.log('train_cls_loss', result['cls_loss'])
+        self.log('train_ner_loss', result['ner_loss'])
         self.log('train_ppl', result['ppl'])
         self.log('train_acc', result['acc'])
         return result
@@ -101,7 +103,7 @@ class Model(LightningModule):
     def validation_epoch_end(self, outputs):
         result = self.epoch_end(outputs, state='val')
         self.log('valid_lm_loss', result['lm_loss'])
-        self.log('valid_cls_loss', result['cls_loss'])
+        self.log('valid_ner_loss', result['ner_loss'])
         self.log('valid_ppl', result['ppl'])
         self.log('valid_acc', result['acc'])
         return result
@@ -161,7 +163,7 @@ def main():
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--random_seed", type=int, default=644128)
     parser.add_argument("--lm_coef", type=float, default=1.0, help="Coefficient for LM loss")
-    parser.add_argument("--cls_coef", type=float, default=1.0, help="Coefficient for CLS loss")
+    parser.add_argument("--ner_coef", type=float, default=1.0, help="Coefficient for NER loss")
     parser.add_argument("--optimizer", type=str, default="AdamW", help="{AdamW, AdamP}")
     parser.add_argument("--lr_scheduler", type=str, default="lambdalr", help="{exp, lambdalr}")
     parser.add_argument("--grad_accum", type=int, default=32, help="Accumulate gradients on several steps")
