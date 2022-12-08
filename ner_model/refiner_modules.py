@@ -12,7 +12,7 @@ class Summary(nn.Module):
     def __init__(self, emb_dim=768):
         super().__init__()
         self.dropout = nn.Dropout(0.1)
-        self.summary = nn.Linear(emb_dim , 1)  # hiddensize, numclasses
+        self.summary = nn.Linear(emb_dim , 6)  # hiddensize, numclasses
     def forward(self, output):
         dropout_pooled_output = self.dropout(output)
         logits = self.summary(dropout_pooled_output)

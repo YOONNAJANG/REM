@@ -12,6 +12,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Learning
 from model import Model
 # from data_utils import make_logdir, get_gpt2_data_loaders, get_t5_data_loaders, get_bart_data_loaders, add_special_tokens, add_special_tokens_gpt2
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
 
 

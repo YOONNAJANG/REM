@@ -16,7 +16,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from transformers import AdamW
-from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
 from collections import Counter, defaultdict
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -129,7 +129,7 @@ class Model(LightningModule):
         if self.hparams.data_type == "focus":
             train_dataset, valid_dataset = dataloader_focus(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "wow":
-            rain_dataset, valid_dataset = None, None
+            rain_dataset, valid_dataset = dataloader_wow(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "persona":
             rain_dataset, valid_dataset = None, None
         return train_dataset, valid_dataset
