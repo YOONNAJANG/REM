@@ -275,7 +275,7 @@ def main():
 
     #for p-tuning
     parser.add_argument("--ptuning", type=bool, default=False)
-    parser.add_argument("--template", type=str, default="3,3,3") #prompt size
+    parser.add_argument("--template", type=str, default="50,50,50") #prompt size
     parser.add_argument("--lstm_dropout", type=float, default=0.0)
     parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
     parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])

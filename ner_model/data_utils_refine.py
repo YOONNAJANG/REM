@@ -95,6 +95,8 @@ def dataloader_focus(args, tokenizer):
                                     dev_dataset_path=dev_dataset_path,
                                     dev_dataset_cache=dev_dataset_cache)
 
+    template = tuple([int(item) for item in args.template.split(',')])
+
     print("Build inputs and labels")
     datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
     for (key, value) in regen_data.items():
@@ -109,7 +111,7 @@ def dataloader_focus(args, tokenizer):
                 golden_knowledge = utt['golden_knowledge']
                 knowledge_ner_label = utt['knowledge_ner_label']
                 instance = build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge,
-                                             knowledge_ner_label)
+                                             knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
 
