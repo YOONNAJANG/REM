@@ -104,68 +104,74 @@ def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
 
     train_dataset_cache = train_dataset_path[:-5] + '_wow_' + type(tokenizer).__name__
     dev_dataset_cache = dev_dataset_path[:-5] + '_wow_' + type(tokenizer).__name__
-    if train_dataset_cache and os.path.isfile(train_dataset_cache):
-        logger.info("Load tokenized dataset from cache at %s", train_dataset_cache)
-        train_dataset = torch.load(train_dataset_cache)
-        dev_dataset = torch.load(dev_dataset_cache)
-        all_dataset = dict()
-        all_dataset["train"] = train_dataset["train"]
-        all_dataset["valid"] = dev_dataset["valid"]
-    else:
-        logger.info("Process dataset from %s", train_dataset_path)
-        wow_file_train = cached_path(train_dataset_path)
-        wow_file_dev = cached_path(dev_dataset_path)
-        file_dict = {"train": wow_file_train, "valid": wow_file_dev}
-        all_dataset = dict()
+    # train_dataset_cache = train_dataset_path[:-5] + '_wow_' + type(tokenizer).__name__
+    # dev_dataset_cache = dev_dataset_path[:-5] + '_wow_' + type(tokenizer).__name__
+    #
 
-        for name, file in file_dict.items():
-            with open(file, "r", encoding="utf-8") as f:
-                dataset = json.loads(f.read())
-                dataset_enc = dict()
-                dataset_enc[name] = list()
-                for data in dataset:
-                    chosen_topic = data["chosen_topic"] # sentence
-                    persona = data["persona"] # sentence
-                    wizard_eval = data["wizard_eval"] # number
-                    dialog = data["dialog"] # dialog dict
-                    chosen_topic_passage = data["chosen_topic_passage"] # list of sentences
-                    new_dialogue = dict()
-                    new_dialogue["dialog"] = list()
-                    for i, utt in enumerate(dialog):
-                        utt_enc = dict()
-                        speaker = utt["speaker"] # 0_Wizard
-                        text = utt["text"] # utterance
-                        print(i)
-                        if speaker == '0_Wizard':
-                            checked_sentence = utt["checked_sentence"] # checked sentence dict
-                            print(checked_sentence)
-                            if 'no_passages_used' in checked_sentence.keys() or len(checked_sentence) == 0:
-                                checked_sentence = 'no_passages_used'
-                            else:
-                                checked_sentence = list(checked_sentence.values())[0]
-                            checked_passage = utt["checked_passage"] # checked_passage dict
-                            utt_enc["checked_sentence"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(checked_sentence.strip()))
+    print(train_dataset_cache)
+    # if train_dataset_cache and os.path.isfile(train_dataset_cache):
+    #     logger.info("Load tokenized dataset from cache at %s", train_dataset_cache)
+    #     train_dataset = torch.load(train_dataset_cache)
+    #     dev_dataset = torch.load(dev_dataset_cache)
+    #     all_dataset = dict()
+    #     all_dataset["train"] = train_dataset["train"]
+    #     all_dataset["valid"] = dev_dataset["valid"]
+    # else:
+    logger.info("Process dataset from %s", train_dataset_path)
+    wow_file_train = cached_path(train_dataset_path)
+    wow_file_dev = cached_path(dev_dataset_path)
+    # file_dict = {"train": wow_file_train, "valid": wow_file_dev}
+    file_dict = {"valid": wow_file_dev, "train": wow_file_train}
+    all_dataset = dict()
 
-                        retrieved_passages = utt["retrieved_passages"] # list of passages
-                        retrieved_topics = utt["retrieved_topics"] #list of topics
-                        utt_enc["text"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text.strip()))
-                        utt_enc["speaker"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(speaker.strip()))
-                        new_dialogue["dialog"].append(utt_enc)
-                    new_dialogue["chosen_topic"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(chosen_topic.strip()))
-                    new_dialogue["persona"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(persona.strip()))
-                    new_dialogue["chosen_topic_passage"] = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(passage.strip())) for passage in chosen_topic_passage]
-                    new_dialogue["wizard_eval"] = wizard_eval
-                    dataset_enc[name].append(new_dialogue)
+    for name, file in file_dict.items():
+        with open(file, "r", encoding="utf-8") as f:
+            dataset = json.loads(f.read())
+            dataset_enc = dict()
+            dataset_enc[name] = list()
+            for data in dataset:
 
-            logger.info("Tokenize and encode the dataset")
-            dataset = dataset_enc
-            all_dataset[name] = dataset_enc[name]
-            if name == 'train':
-                print('saving train')
-                torch.save(dataset, train_dataset_cache)
-            else:
-                print('saving valid')
-                torch.save(dataset, dev_dataset_cache)
+                chosen_topic = data["chosen_topic"] # sentence
+                persona = data["persona"] # sentence
+                wizard_eval = data["wizard_eval"] # number
+                dialog = data["dialog"] # dialog dict
+                chosen_topic_passage = data["chosen_topic_passage"] # list of sentences
+                new_dialogue = dict()
+                new_dialogue["dialog"] = list()
+                for i, utt in enumerate(dialog):
+                    utt_enc = dict()
+                    speaker = utt["speaker"] # 0_Wizard
+                    text = utt["text"] # utterance
+                    if speaker == '0_Wizard':
+                        checked_sentence = utt["checked_sentence"] # checked sentence dict
+                        if 'no_passages_used' in checked_sentence.keys() or len(checked_sentence) == 0:
+                            checked_sentence = 'no_passages_used'
+                        else:
+                            checked_sentence = list(checked_sentence.values())[0]
+                        checked_passage = utt["checked_passage"] # checked_passage dict
+                        utt_enc["checked_sentence"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(checked_sentence.strip()))
+
+                    retrieved_passages = utt["retrieved_passages"] # list of passages
+                    retrieved_topics = utt["retrieved_topics"] #list of topics
+                    utt_enc["text"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text.strip()))
+                    utt_enc["speaker"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(speaker.strip()))
+
+                    new_dialogue["dialog"].append(utt_enc)
+                new_dialogue["chosen_topic"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(chosen_topic.strip()))
+                new_dialogue["persona"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(persona.strip()))
+                new_dialogue["chosen_topic_passage"] = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(passage.strip())) for passage in chosen_topic_passage]
+                new_dialogue["wizard_eval"] = wizard_eval
+                dataset_enc[name].append(new_dialogue)
+
+        logger.info("Tokenize and encode the dataset")
+        dataset = dataset_enc
+        all_dataset[name] = dataset_enc[name]
+        # if name == 'train':
+        #     print('saving train')
+        #     torch.save(dataset, train_dataset_cache)
+        # else:
+        #     print('saving valid')
+        #     torch.save(dataset, dev_dataset_cache)
     return all_dataset
 
 

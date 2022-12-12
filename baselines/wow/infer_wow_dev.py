@@ -73,7 +73,7 @@ class Model(LightningModule):
 
     def test_dataloader(self):
         print("\n:: Load and preprocess VALID dataset ::")
-        valid_sampler = torch.utils.data.distributed.DistributedSampler(self.valid_dataset)
+        valid_sampler = torch.utils.data.distributed.DistributedSampler(self.valid_dataset, shuffle=False)
         valid_loader = DataLoader(self.valid_dataset, sampler=valid_sampler, batch_size=self.hparams.test_batch_size)
         return valid_loader
 
@@ -113,7 +113,7 @@ class Model(LightningModule):
         #     input = i['input']
         result_dict = {}
         result_dict['data'] = outputs
-        breakpoint()
+        # breakpoint()
         with open(self.hparams.output_dir + self.hparams.flag + '.json', 'w') as outputfile:
             json.dump(result_dict, outputfile, indent='\t')
         return result_dict
@@ -129,9 +129,9 @@ def main():
     parser.add_argument("--model_path", type=str, default="facebook/bart-base",
                     help="pre-trained model path among {facebook/bart-base, t5-base, allenai/led-base-16384, facebook/bart-large, t5-large, allenai/led-large-16384}")  # or "facebook/bart-large"
     parser.add_argument("--checkpoint", type=str, default="/home/data/yoonna/focusmodeling/wow/model/E5/epoch4-ppl10.6098.ckpt", help="load checkpoint and resume train")
-    parser.add_argument("--train_dataset_path", type=str, default="data/train.json",
+    parser.add_argument("--train_dataset_path", type=str, default="/home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json",
                         help="Path or url of the dataset.")
-    parser.add_argument("--dev_dataset_path", type=str, default="data/valid_random_split.json",
+    parser.add_argument("--dev_dataset_path", type=str, default="/home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json",
                         help="Path or url of the dataset.")
     parser.add_argument("--max_history", type=int, default=3, help="Number of previous exchanges to keep in history")
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for validation")
@@ -145,13 +145,13 @@ def main():
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--flag", type=str, default="output_beam1_09k", help="Assign the name of the folder")
     parser.add_argument("--seed", type=int, default=19950604)
-    parser.add_argument("--output_dir", type=str, default="/home/data/yoonna/focusmodeling/wow/output/", help="directory where the model to be saved on")
+    parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/wow/output/", help="directory where the model to be saved on")
     args = vars(parser.parse_args())
 
     print(":: Using PyTorch Ver", torch.__version__, " ::")
     print(":: Fix Seed", args['seed'], " ::")
     from setproctitle import setproctitle
-    setproctitle("yoonna")
+    setproctitle("suhyun")
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)

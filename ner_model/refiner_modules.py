@@ -31,11 +31,15 @@ class BartEncDec(BartForConditionalGeneration):
         self.max_position = config.max_position_embeddings
         self.metric = load_metric("seqeval")
         self.init_weights()
+        self.id2label = {0:"O", 1:"B", 2:"I"}
+
+        nSamples = [4813018, 399695, 900778]
+        normedWeights = [1 - (x / sum(nSamples)) for x in nSamples]
+        self.normedWeights = torch.FloatTensor(normedWeights).to("cuda")
 
     def forward(
             self,
             input_ids=None,
-            inputs_embeds=None,
             decoder_input_ids=None,
             lm_labels=None,
             ner_labels=None
@@ -46,10 +50,7 @@ class BartEncDec(BartForConditionalGeneration):
         # print("input_ids.size(): ",input_ids.size()) # [2, 312] -> [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
         # print("cls_labels.size(): ",ner_labels.size()) # [2, 312]
         # print(input_ids)
-        if input_ids != None:
-            outputs = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
-        else:
-            outputs = self.model(inputs_embeds=inputs_embeds, decoder_input_ids=decoder_input_ids)
+        outputs = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias  # batch, decseqlen, dim
         ner_logits_cls = outputs['encoder_last_hidden_state']  # batch, encseqlen, dim
         ner_logits = self.summary(ner_logits_cls).squeeze(-1)
@@ -78,8 +79,12 @@ class BartEncDec(BartForConditionalGeneration):
 
         ner_loss = None
         if ner_labels is not None:
+
+            # loss_fct = CrossEntropyLoss(weight =self.normedWeights, ignore_index=-1)
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             # cls_loss = loss_fct(cls_logits, cls_labels.type_as(cls_logits))
+
+
             ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
             predictions = torch.argmax(ner_logits, dim=2)
 
@@ -89,23 +94,24 @@ class BartEncDec(BartForConditionalGeneration):
 
 
             true_predictions = [
-                [p.item() for (p, l) in zip(prediction, label) if l != -1]
+                [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
             ]
             true_labels = [
-                [l.item() for (p, l) in zip(prediction, label) if l != -1]
+                [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
             ]
             # print(true_predictions)
             # print(true_labels)
-            # breakpoint()
+            # print("----------------")
+
             results = self.metric.compute(predictions=true_predictions, references=true_labels)
             ner_results = {
-            "precision": results["overall_precision"],
-            "recall": results["overall_recall"],
-            "f1": results["overall_f1"],
-            "accuracy": results["overall_accuracy"],
-            }
+          "precision": results["overall_precision"],
+          "recall": results["overall_recall"],
+          "f1": results["overall_f1"],
+          "accuracy": results["overall_accuracy"],
+      }
 
 
             # output_dict['lm_logits'] = lm_logits
