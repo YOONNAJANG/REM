@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 import sys
 
 
@@ -33,6 +33,7 @@ class Model(LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.save_hyperparameters()
+        self.pseudo_token = self.hparams.pseudo_token
 
         from transformers import BartTokenizer, BartConfig
         from refiner_modules import BartEncDec
