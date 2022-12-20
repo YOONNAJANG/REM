@@ -47,7 +47,7 @@ class Model(LightningModule):
         if self.hparams.ptuning==True:
             for name, param in self.model.named_parameters():
                 # if name.startswith('model.encoder.') or name.startswith('model.decoder.'):
-                # param.requires_grad = False
+                param.requires_grad = False
                 print('frozen params: ', name)
             self.embeddings = get_embedding_layer(self.hparams, self.model)
             # set allowed vocab set
@@ -265,8 +265,8 @@ def main():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
     parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
-    parser.add_argument("--train_batch_size", type=int, default=16)
-    parser.add_argument("--valid_batch_size", type=int, default=2)
+    parser.add_argument("--train_batch_size", type=int, default=32)
+    parser.add_argument("--valid_batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")

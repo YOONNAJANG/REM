@@ -124,7 +124,7 @@ def dataloader_focus(args, tokenizer):
     dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev.json"
     dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev_cache.tar.gz"
 
-    regen_data = get_dataset_refine(tokenizer, train_dataset_path=train_dataset_path,
+    regen_data = get_dataset_focus(tokenizer, train_dataset_path=train_dataset_path,
                                     train_dataset_cache=train_dataset_cache,
                                     dev_dataset_path=dev_dataset_path,
                                     dev_dataset_cache=dev_dataset_cache)
