@@ -40,6 +40,7 @@ class BartEncDec(BartForConditionalGeneration):
     def forward(
             self,
             input_ids=None,
+            inputs_embeds=None,
             decoder_input_ids=None,
             lm_labels=None,
             ner_labels=None
@@ -50,7 +51,11 @@ class BartEncDec(BartForConditionalGeneration):
         # print("input_ids.size(): ",input_ids.size()) # [2, 312] -> [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
         # print("cls_labels.size(): ",ner_labels.size()) # [2, 312]
         # print(input_ids)
-        outputs = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
+        if input_ids != None:
+            outputs = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
+        else:
+            outputs = self.model(inputs_embeds=inputs_embeds, decoder_input_ids=decoder_input_ids)
+
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias  # batch, decseqlen, dim
         ner_logits_cls = outputs['encoder_last_hidden_state']  # batch, encseqlen, dim
         ner_logits = self.summary(ner_logits_cls).squeeze(-1)

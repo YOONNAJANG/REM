@@ -18,6 +18,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Learning
 from transformers import AdamW
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus
 from collections import Counter, defaultdict
+from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
@@ -41,15 +43,70 @@ class Model(LightningModule):
         self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
         #add_special_tokens_(self.model, self.tokenizer, special_tokens=)
 
+        if self.hparams.ptuning==True:
+            for name, param in self.model.named_parameters():
+                # if name.startswith('model.encoder.') or name.startswith('model.decoder.'):
+                # param.requires_grad = False
+                print('frozen params: ', name)
+            self.embeddings = get_embedding_layer(self.hparams, self.model)
+            # set allowed vocab set
+            self.vocab = self.tokenizer.get_vocab()
+            self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
+            self.template = tuple([int(item) for item in self.hparams.template.split(',')])
+            # load prompt encoder
+            self.hidden_size = self.embeddings.embedding_dim
+            self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+            self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
+            self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
+            self.spell_length = sum(self.template)
+            self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
+            self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+
+
+    def embed_inputs(self, queries):
+        bz = queries.shape[0] #batchsize
+        queries_for_embedding = queries.clone()
+        queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
+        raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
+        blocked_indices = (queries == self.pseudo_token_id)
+        blocked_indices =  torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
+        replace_embeds = self.prompt_encoder() #spell_length, embdim
+        for bidx in range(bz):
+            for i in range(self.prompt_encoder.spell_length):
+                raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
+        return raw_embeds
+
+    #
+    # def step(self, batch, batch_idx):
+    #
+    #     input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+    #     output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
+    #     return output
 
     def step(self, batch, batch_idx):
-
-        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-        output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
+        # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        if self.hparams.ptuning == True:
+            input_embeds = self.embed_inputs(batch['input_ids'])
+            if 'input_ids' in batch:
+                del batch['input_ids']
+                batch['inputs_embeds'] = input_embeds
+            output = self.model(**batch)
+        else:
+            output = self.model(**batch)
         return output
 
+
+
+
     def training_step(self, batch, batch_idx):
-        result = self.step(batch, batch_idx)
+        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        inputs = {
+            'input_ids':input_ids,
+            'decoder_input_ids':decoder_input_ids,
+            'lm_labels':lm_labels,
+            'ner_labels':ner_labels
+        }
+        result = self.step(inputs, batch_idx)
         lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
         loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
         self.log('train_loss', loss)
@@ -74,8 +131,14 @@ class Model(LightningModule):
         return result
 
     def validation_step(self, batch, batch_idx):
-        results = self.step(batch, batch_idx)
-        #print(result.items())
+        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        inputs = {
+            'input_ids': input_ids,
+            'decoder_input_ids': decoder_input_ids,
+            'lm_labels': lm_labels,
+            'ner_labels': ner_labels
+        }
+        results = self.step(inputs, batch_idx)
 
         result = {}
         for k, v in results.items():
@@ -99,7 +162,6 @@ class Model(LightningModule):
         return result
 
     def epoch_end(self, outputs, state='train'):
-
         if state=='train' or state=='val':
             lm_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
             cls_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
@@ -219,6 +281,16 @@ def main():
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/regen_add_ner/", help="default value for PLMs")
+
+
+    #for p-tuning
+    parser.add_argument("--ptuning", type=bool, default=False)
+    parser.add_argument("--template", type=str, default="50,50,50") #prompt size
+    parser.add_argument("--lstm_dropout", type=float, default=0.0)
+    parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
+    parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
+
+
     args = vars(parser.parse_args())
     print("Using PyTorch Ver", torch.__version__)
     print("Fix Seed:", args['random_seed'])

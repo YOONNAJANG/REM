@@ -47,7 +47,7 @@ def add_special_tokens_test(model, congen_model, tokenizer, special_tokens):
 
 
 
-def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label): #gk|p|history|u' -> u
+def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
     bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
     dec_bos = 2  # tokenizer.decoder_start_token_id
     # input_ids = [bos] + gt_knowledge + [eos] + corrputed[0] + [eos]
@@ -77,11 +77,21 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
     # print(len(gold_knowledge), gold_knowledge)
     # print(len(knowledge_label),knowledge_label)
     history_ = [human_st] + history_[0]
+    assert len(persona_ner_label) == len(persona_cans)
+
 
     # if len(history) == 1:
         # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + history
-    enc_sequence = gold_knowledge + persona_cans
-    enc_sequence.extend(history_)
+    if args.ptuning == False:
+        enc_sequence = gold_knowledge + persona_cans
+        enc_sequence.extend(history_)
+        ner_label = [bos] + knowledge_label + persona_ner_label
+
+    else:
+        pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
+        enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[1] + persona_cans + [pseudo_token_id] * template[2]
+        enc_sequence.extend(history_)
+        ner_label = [-1] + [-1] * template[0] + knowledge_label[1:] + [-1] * template[1] + persona_ner_label + [-1] * template[2]
 
     dec_sequence = [dec_bos] + reply + [eos]
     #
@@ -92,9 +102,7 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
     #     dec_sequence = [dec_bos] + reply + [eos]
     # # print(enc_sequence)
 
-    assert len(persona_ner_label) == len(persona_cans)
 
-    ner_label = [bos] + knowledge_label + persona_ner_label
     # print(enc_sequence)
     # print(dec_sequence)
     # print(ner_label)
@@ -112,7 +120,6 @@ def build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golde
 def dataloader_focus(args, tokenizer):
 
     train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_train.json"
-
     train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_train_cache.tar.gz"
     dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev.json"
     dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev_cache.tar.gz"
@@ -121,6 +128,7 @@ def dataloader_focus(args, tokenizer):
                                     train_dataset_cache=train_dataset_cache,
                                     dev_dataset_path=dev_dataset_path,
                                     dev_dataset_cache=dev_dataset_cache)
+    template = tuple([int(item) for item in args.template.split(',')])
 
     print("Build inputs and labels")
     datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
@@ -136,8 +144,8 @@ def dataloader_focus(args, tokenizer):
                 persona_ner_label = utt['persona_ner_label']
                 golden_knowledge = utt['golden_knowledge']
                 knowledge_ner_label = utt['knowledge_ner_label']
-                instance = build_input_focus(tokenizer, history, persona_cans, persona_ner_label, golden_knowledge,
-                                             knowledge_ner_label)
+                instance = build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge,
+                                             knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
 
@@ -168,9 +176,9 @@ def pad_dataset_focus(dataset, padding):
     return dataset
 
 
-def get_dataset_refine(tokenizer, train_dataset_path, train_dataset_cache, dev_dataset_path, dev_dataset_cache):
+def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_dataset_path, dev_dataset_cache):
     ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
-    ner_label_count = {0:0, 1:0,2:0}
+
     token_char = tokenizer.convert_ids_to_tokens(5)[0]
     # print(token_char)
     def tokenize(obj):
@@ -401,15 +409,6 @@ def get_dataset_refine(tokenizer, train_dataset_path, train_dataset_cache, dev_d
                         for i, l in enumerate(knowledge_ner_labels_enc):
                             if l in [3,4,5]:
                                 knowledge_ner_labels_enc[i] = -1
-                        count_dic = Counter(persona_ner_labels_enc)
-                        for l, v in count_dic.items():
-                            if l != -1:
-                                ner_label_count[l] += v
-                        count_dic = Counter(knowledge_ner_labels_enc)
-                        for l, v in count_dic.items():
-                            if l != -1:
-                                ner_label_count[l] += v
-
 
                         dial_new["dialog"] = dial_enc
                         dial_new["persona_grounding"] = persona_ground_enc
@@ -429,14 +428,10 @@ def get_dataset_refine(tokenizer, train_dataset_path, train_dataset_cache, dev_d
 
 
             logger.info("Tokenize and encode the dataset")
-            print("**********############",ner_label_count)
-            # breakpoint()
             dataset = dataset_enc
             all_dataset[name] = dataset_enc[name]
             if name == 'train':
                 torch.save(dataset, train_dataset_cache)
             else:
                 torch.save(dataset, dev_dataset_cache)
-
     return all_dataset
-
