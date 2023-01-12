@@ -2,9 +2,11 @@ from setproctitle import setproctitle
 setproctitle("yoonna")
 import sys
 
-
-from argparse import ArgumentParser
 import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+from argparse import ArgumentParser
 from itertools import chain
 print(os.getcwd())
 import wandb
@@ -21,9 +23,6 @@ from collections import Counter, defaultdict
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
 
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
@@ -43,12 +42,13 @@ class Model(LightningModule):
         # self.model.to(self.hparams.device)
         self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
         #add_special_tokens_(self.model, self.tokenizer, special_tokens=)
-
+        print('hparams: ', self.hparams)
+        print('ptuning: ', self.hparams.ptuning)
         if self.hparams.ptuning==True:
             for name, param in self.model.named_parameters():
-                # if name.startswith('model.encoder.') or name.startswith('model.decoder.'):
-                param.requires_grad = False
-                print('frozen params: ', name)
+                # if name.startswith('model.decoder.') or name.startswith('model.encoder.'):
+                #     param.requires_grad = False
+                print('not frozen params: ', name)
             self.embeddings = get_embedding_layer(self.hparams, self.model)
             # set allowed vocab set
             self.vocab = self.tokenizer.get_vocab()
@@ -57,6 +57,7 @@ class Model(LightningModule):
             # load prompt encoder
             self.hidden_size = self.embeddings.embedding_dim
             self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+
             self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
             self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
             self.spell_length = sum(self.template)
