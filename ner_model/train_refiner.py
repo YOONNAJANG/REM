@@ -20,7 +20,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Learning
 from transformers import AdamW
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus
 from collections import Counter, defaultdict
-from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding
 
 
 
@@ -57,12 +57,15 @@ class Model(LightningModule):
             # load prompt encoder
             self.hidden_size = self.embeddings.embedding_dim
             self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+            self.model.resize_token_embeddings(len(self.tokenizer))
 
             self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
             self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
             self.spell_length = sum(self.template)
             self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+
+            init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
 
 
     def embed_inputs(self, queries):
@@ -291,6 +294,7 @@ def main():
     parser.add_argument("--lstm_dropout", type=float, default=0.0)
     parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
     parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
+    parser.add_argument("--target_word_to_init", type=str, default="banana")
 
 
     args = vars(parser.parse_args())

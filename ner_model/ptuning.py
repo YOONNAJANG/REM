@@ -2,6 +2,26 @@ import torch
 import torch.nn as nn
 import json
 from os.path import join
+from typing import List, Dict, Tuple
+
+from transformers import PreTrainedModel, PreTrainedTokenizer
+
+
+def init_prompt_embedding(
+        pseudo_token_id: int, target_word_to_init: str, model: PreTrainedModel, tokenizer: PreTrainedTokenizer
+) -> None:
+
+    assert pseudo_token_id in tokenizer.get_vocab(), \
+        "Please check whether the psudo token is included in the tokenizer\'s vocabulary."
+
+    with torch.no_grad():
+        word_embeddings = model.get_input_embeddings()
+        continuous_word_ids = tokenizer(target_word_to_init, add_special_tokens=False)['input_ids']
+        word_embeddings.weight[pseudo_token_id] = torch.mean(word_embeddings.weight[continuous_word_ids], dim=0)
+
+        assert torch.equal(model.get_input_embeddings().weight, word_embeddings.weight)
+        assert torch.equal(model.get_input_embeddings().weight,
+                           model.get_output_embeddings().weight)
 
 
 def init_vocab(args):
@@ -51,6 +71,7 @@ def get_embedding_layer(args, model):
     # else:
     #     raise NotImplementedError()
     return embeddings
+
 
 class PromptEncoder(torch.nn.Module):
     def __init__(self, template, hidden_size, tokenizer, device, args):
