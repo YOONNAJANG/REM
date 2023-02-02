@@ -20,7 +20,13 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, Learning
 from transformers import AdamW
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus
 from collections import Counter, defaultdict
-from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding
+from ptuning import (
+    get_embedding_layer,
+    PromptEncoder,
+    get_vocab_by_strategy,
+    init_prompt_embedding,
+    init_focus_tokens_embedding
+)
 
 
 
@@ -66,6 +72,7 @@ class Model(LightningModule):
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
 
             init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
+        init_focus_tokens_embedding(special_tokens_focus, self.model, self.tokenizer)
 
 
     def embed_inputs(self, queries):

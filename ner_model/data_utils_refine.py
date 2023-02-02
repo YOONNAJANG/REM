@@ -16,7 +16,12 @@ import random
 from random import randrange
 
 
-special_tokens_focus = {'machine_token':'<machine>', 'human_token':'<human>', 'persona_token':'<persona>', 'knowledge_token':'<knowledge>'}
+special_tokens_focus = {
+    'machine_token': '<machine>',
+    'human_token': '<human>',
+    'persona_token': '<persona>',
+    'knowledge_token': '<knowledge>'
+}
 # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]

@@ -12,12 +12,40 @@ def init_prompt_embedding(
 ) -> None:
 
     assert pseudo_token_id in tokenizer.get_vocab(), \
-        "Please check whether the psudo token is included in the tokenizer\'s vocabulary."
+        "Please check whether the pseudo token is included in the tokenizer\'s vocabulary."
 
     with torch.no_grad():
         word_embeddings = model.get_input_embeddings()
         continuous_word_ids = tokenizer(target_word_to_init, add_special_tokens=False)['input_ids']
         word_embeddings.weight[pseudo_token_id] = torch.mean(word_embeddings.weight[continuous_word_ids], dim=0)
+
+        assert torch.equal(model.get_input_embeddings().weight, word_embeddings.weight)
+        assert torch.equal(model.get_input_embeddings().weight,
+                           model.get_output_embeddings().weight)
+
+
+def init_focus_tokens_embedding(
+        special_tokens_focus: Dict[str, str],
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer
+) -> None:
+    target_words_to_init = {
+        '<machine>': [tokenizer.sep_token, 'machine\'s turn'],
+        '<human>': [tokenizer.sep_token, 'human\'s turn'],
+        '<persona>': [tokenizer.sep_token, 'human\'s persona'],
+        '<knowledge>': [tokenizer.sep_token, 'knowledge to answer'],
+    }
+
+    with torch.no_grad():
+        for key, special_token in special_tokens_focus.items():
+            target_tokens = []
+            for word in target_words_to_init[special_token]:
+                target_tokens.extend(tokenizer(word, add_special_tokens=False)['input_ids'])
+
+            word_embeddings = model.get_input_embeddings()
+            word_embeddings.weight[special_token] = torch.mean(
+                word_embeddings.weight[target_tokens], dim=0
+            )
 
         assert torch.equal(model.get_input_embeddings().weight, word_embeddings.weight)
         assert torch.equal(model.get_input_embeddings().weight,
