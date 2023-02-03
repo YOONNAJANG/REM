@@ -1,11 +1,13 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyun")
 import sys
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
+
 from argparse import ArgumentParser
+import os
 from itertools import chain
 print(os.getcwd())
 import wandb
@@ -17,11 +19,12 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from transformers import AdamW
-from data_utils_refine_yoonna import add_special_tokens_, special_tokens_focus, dataloader_focus
 from collections import Counter, defaultdict
 import numpy as np
 import random
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
+
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
 
@@ -30,7 +33,6 @@ class Model(LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.save_hyperparameters()
-        self.pseudo_token = self.hparams.pseudo_token
 
         from transformers import AutoTokenizer, BartConfig
         # from refiner_modules import BartEncDec as bartmodel
@@ -104,15 +106,9 @@ class Model(LightningModule):
             output = self.model(**batch)
         return output
 
+
     def training_step(self, batch, batch_idx):
-        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-        inputs = {
-            'input_ids':input_ids,
-            'decoder_input_ids':decoder_input_ids,
-            'lm_labels':lm_labels,
-            'ner_labels':ner_labels
-        }
-        result = self.step(inputs, batch_idx)
+        result = self.step(batch, batch_idx)
         lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
         loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
         self.log('train_loss', loss)
@@ -137,14 +133,8 @@ class Model(LightningModule):
         return result
 
     def validation_step(self, batch, batch_idx):
-        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-        inputs = {
-            'input_ids': input_ids,
-            'decoder_input_ids': decoder_input_ids,
-            'lm_labels': lm_labels,
-            'ner_labels': ner_labels
-        }
-        results = self.step(inputs, batch_idx)
+        results = self.step(batch, batch_idx)
+        #print(result.items())
 
         result = {}
         for k, v in results.items():
@@ -168,6 +158,7 @@ class Model(LightningModule):
         return result
 
     def epoch_end(self, outputs, state='train'):
+
         if state=='train' or state=='val':
             lm_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
             cls_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
@@ -240,12 +231,13 @@ class Model(LightningModule):
         }
 
     def dataloader(self):
+
         if self.hparams.data_type == "focus":
             train_dataset, valid_dataset = dataloader_focus(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "wow":
-            rain_dataset, valid_dataset = None, None
+            train_dataset, valid_dataset = dataloader_wow(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "persona":
-            rain_dataset, valid_dataset = None, None
+            train_dataset, valid_dataset = None, None
         return train_dataset, valid_dataset
 
     def train_dataloader(self):
@@ -282,7 +274,6 @@ def main():
     parser.add_argument("--test_mode", type=bool, default=False)
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/regen_add_ner/", help="default value for PLMs")
 
-
     #for p-tuning
     parser.add_argument("--ptuning", type=bool, default=False)
     parser.add_argument("--template", type=str, default="50,50,50") #prompt size
@@ -291,6 +282,7 @@ def main():
     parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
     parser.add_argument("--fewshot", type=bool, default=False)
     parser.add_argument("--fewnum", type=int, default=100)
+
 
 
     args = vars(parser.parse_args())

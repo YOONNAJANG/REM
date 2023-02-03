@@ -1,21 +1,21 @@
 CUDA_VISIBLE_DEVICES=0 nohup  python wow/infer_wow_dev.py --train_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json \
 --dev_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json --flag train_output_beam1_09k \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/ > wow/train_infer.out &
+--output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/new/ --checkpoint /home/data/ssh5131/focus_modeling/model/train_wow_origin_v2/epoch7-ppl17.3576.ckpt > wow/train_infer.out &
 
 CUDA_VISIBLE_DEVICES=0 nohup  python wow/infer_wow_dev.py --train_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json \
 --dev_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/valid_random_split.json --flag valid_random_split_output_beam1_09k \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/ > wow/valid_random_split_infer.out &
+--output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/new/ --checkpoint /home/data/ssh5131/focus_modeling/model/train_wow_origin_v2/epoch7-ppl17.3576.ckpt > wow/valid_random_split_infer.out &
 
 CUDA_VISIBLE_DEVICES=0 nohup  python wow/infer_wow_dev.py --train_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json \
 --dev_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/valid_topic_split.json --flag valid_topic_split_output_beam1_09k \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/ > wow/valid_topic_split_infer.out &
+--output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/new/ --checkpoint /home/data/ssh5131/focus_modeling/model/train_wow_origin_v2/epoch7-ppl17.3576.ckpt > wow/valid_topic_split_infer.out &
 
 
-CUDA_VISIBLE_DEVICES=1 nohup  python wow/infer_wow_dev.py --train_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json \
+CUDA_VISIBLE_DEVICES=1 nohup python wow/infer_wow_dev.py --train_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json \
 --dev_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/test_random_split.json --flag test_random_split_output_beam1_09k \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/ > wow/test_random_split_infer.out &
+--output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/new/ --checkpoint /home/data/ssh5131/focus_modeling/model/train_wow_origin_v2/epoch7-ppl17.3576.ckpt > wow/test_random_split_infer.out &
 
 CUDA_VISIBLE_DEVICES=1 nohup  python wow/infer_wow_dev.py --train_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/train.json \
 --dev_dataset_path /home/data/ssh5131/focus_modeling/others/wizard_of_wikipedia/original/test_topic_split.json --flag test_topic_split_output_beam1_09k \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/ > wow/test_topic_split_infer.out &
+--output_dir /home/data/ssh5131/focus_modeling/eval_output/wow/output/new/  --checkpoint /home/data/ssh5131/focus_modeling/model/train_wow_origin_v2/epoch7-ppl17.3576.ckpt > wow/test_topic_split_infer.out &
 

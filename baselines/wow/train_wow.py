@@ -231,7 +231,7 @@ def main():
     print(":: Using PyTorch Ver", torch.__version__, " ::")
     print(":: Fix Seed", args['seed'], " ::")
     from setproctitle import setproctitle
-    setproctitle("yoonna")
+    setproctitle("suhyun")
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)
