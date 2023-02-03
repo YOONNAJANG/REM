@@ -7,8 +7,8 @@ from torch.nn import CrossEntropyLoss
 
 logger = logging.getLogger(__name__)
 import sys
-import utils
-sys.modules['train_importance_utils'] = utils
+# import utils
+# sys.modules['train_importance_utils'] = utils
 
 class BERTBasicModel(BertPreTrainedModel):
     def __init__(self, config):

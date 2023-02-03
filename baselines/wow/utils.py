@@ -49,6 +49,7 @@ def build_input_for_bart(args, history, checked_sentences, persona, tokenizer):
 
     history_data = []
     history_list = []
+    # print("**** history: ",history)
     if history[0][0] == [288, 1215, 771, 44417]: #wizard starts
         history = history[:-1]
     for i, utt in enumerate(history):
@@ -57,20 +58,35 @@ def build_input_for_bart(args, history, checked_sentences, persona, tokenizer):
         if utt[0] == [288, 1215, 771, 44417]:
             history_now = copy.deepcopy(history_list)
             history_data.append(history_now)
+    # print("***********************")
+    # print(len(history))
+    if history_data == []: ###이게 0이여서 특정 샘플은 안하고 넘어감
 
+        for i in range(2, len(history) + 1, 2):
+            history_data.append(history[:i])
+
+    # print("**** history_data:  ",history_data)
+    # print("|||  checked_sentences", checked_sentences)
     input_list = list()
     for i, (history, knowledge) in enumerate(zip(history_data, checked_sentences)):
         dial_dict = {}
         tokenizer = tokenizer
         reply = history[-1][-1]
+        # print("**** reply ****",reply)
+        # print("**** &&&&&reply ****",tokenizer.decode(reply))
         dial_hist = history[-(2*args.max_history+1):-1]
+        # print("**** dial_hist ****",dial_hist)
+        # breakpoint()
         if len(dial_hist) == 0:
-            # dialogue_history = [[wizard_st] + utt[-1] if i % 2 == 0 else [apprentice_st] + utt[-1] for i, utt in enumerate(dial_hist)]
+
+            dialogue_history = [[wizard_st] + utt[-1] if i % 2 == 0 else [apprentice_st] + utt[-1] for i, utt in enumerate(dial_hist)]
             input_ids = [[bos] + [knowledge_st]] + [knowledge] + [[persona_st]] + [persona] + [[eos]]
             dial_dict['input_ids'] = list(chain(*input_ids))
             dial_dict['decoder_input_ids'] = [bos] + reply
             dial_dict["lm_labels"] = reply + [eos]
             dial_dict["persona"] = persona
+            # print("**** reply ****", reply)
+            # print("**** &&&&&reply ****", tokenizer.decode(reply))
 
         elif dial_hist[0][0][0] == [134, 1215, 19186, 38388]: #apprentice first
             dialogue_history = [[apprentice_st]+utt[-1] if i%2==0 else [wizard_st]+utt[-1] for i, utt in enumerate(dial_hist)]
@@ -79,6 +95,8 @@ def build_input_for_bart(args, history, checked_sentences, persona, tokenizer):
             dial_dict['decoder_input_ids'] = [bos] + reply
             dial_dict["lm_labels"] = reply + [eos]
             dial_dict["persona"] = persona
+            # print("**** AA reply ****",reply)
+            # print("**** AA &&&&&reply ****",tokenizer.decode(reply))
 
         else:                         #wizard first
             dialogue_history = [[wizard_st]+utt[-1] if i%2==0 else [apprentice_st]+utt[-1] for i, utt in enumerate(dial_hist)]
@@ -87,12 +105,14 @@ def build_input_for_bart(args, history, checked_sentences, persona, tokenizer):
             dial_dict['decoder_input_ids'] = [bos] + reply
             dial_dict["lm_labels"] = reply + [eos]
             dial_dict["persona"] = persona
+            # print("**** WW reply ****",reply)
+            # print("**** WW &&&&&reply ****",tokenizer.decode(reply))
 
         input_list.append(dial_dict)
 
     return input_list
 
-
+#
 def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
 
     def tokenize(obj):
@@ -123,12 +143,14 @@ def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
     # file_dict = {"train": wow_file_train, "valid": wow_file_dev}
     file_dict = {"valid": wow_file_dev, "train": wow_file_train}
     all_dataset = dict()
-
+    tmp_count = 0
     for name, file in file_dict.items():
+        print(name, file)
         with open(file, "r", encoding="utf-8") as f:
             dataset = json.loads(f.read())
             dataset_enc = dict()
             dataset_enc[name] = list()
+
             for data in dataset:
 
                 chosen_topic = data["chosen_topic"] # sentence
@@ -139,6 +161,7 @@ def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
                 new_dialogue = dict()
                 new_dialogue["dialog"] = list()
                 for i, utt in enumerate(dialog):
+                    # print(utt)
                     utt_enc = dict()
                     speaker = utt["speaker"] # 0_Wizard
                     text = utt["text"] # utterance
@@ -157,6 +180,7 @@ def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
                     utt_enc["speaker"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(speaker.strip()))
 
                     new_dialogue["dialog"].append(utt_enc)
+                tmp_count += 1
                 new_dialogue["chosen_topic"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(chosen_topic.strip()))
                 new_dialogue["persona"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(persona.strip()))
                 new_dialogue["chosen_topic_passage"] = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(passage.strip())) for passage in chosen_topic_passage]
@@ -166,12 +190,16 @@ def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
         logger.info("Tokenize and encode the dataset")
         dataset = dataset_enc
         all_dataset[name] = dataset_enc[name]
-        # if name == 'train':
-        #     print('saving train')
-        #     torch.save(dataset, train_dataset_cache)
-        # else:
-        #     print('saving valid')
-        #     torch.save(dataset, dev_dataset_cache)
+        #
+        # print(tmp_count)
+        # breakpoint()
+
+        if name == 'train':
+            print('saving train')
+            torch.save(dataset, train_dataset_cache)
+        else:
+            print('saving valid')
+            torch.save(dataset, dev_dataset_cache)
     return all_dataset
 
 
@@ -183,7 +211,8 @@ def get_data_loaders(args, tokenizer):
     model_name = args.model_name
 
     logger.info("Build inputs and labels")
-    datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
+    # datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
+    datasets = {"valid": defaultdict(list), "train": defaultdict(list)}
 
     for dataset_name, dataset in focus.items():
         print(dataset_name, len(dataset))
@@ -196,11 +225,20 @@ def get_data_loaders(args, tokenizer):
             wizard_eval = data["wizard_eval"]
             checked_sentences = []
             history = []
+            history_sent = []
             for i, utt in enumerate(dialog):
+                # print(tokenizer.decode(utt['text']))
+                history_sent.append(tokenizer.decode(utt['text']))
+                # breakpoint()
                 history.append([utt['speaker'], utt['text']])
                 if 'checked_sentence' in utt.keys():  # wizard's turn
                     checked_sentences.append(utt['checked_sentence'])
-
+                else: ########이 부분
+                    checked_sentence ='no_passages_used '
+                    checked_sentences.append(tokenizer.convert_tokens_to_ids(tokenizer.tokenize(checked_sentence.strip())))
+            # print(history)
+            # print(history_sent)
+            # breakpoint()
             if model_name == 'BART' or model_name == 'transformer-encdec':
                     instance_list = build_input_for_bart(args, history, checked_sentences, persona, tokenizer)
 
@@ -228,3 +266,127 @@ def get_data_loaders(args, tokenizer):
     return train_dataset, valid_dataset
 
 
+# def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
+#
+#     def tokenize(obj):
+#         if isinstance(obj, str):
+#             return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+#         if isinstance(obj, dict):
+#             return dict((n, tokenize(o)) for n, o in obj.items())
+#         return list(tokenize(o) for o in obj)
+#
+#     train_dataset_cache = train_dataset_path[:-5] + '_wow_' + type(tokenizer).__name__
+#     dev_dataset_cache = dev_dataset_path[:-5] + '_wow_' + type(tokenizer).__name__
+#     tmp_count = 0
+#     if dev_dataset_cache and os.path.isfile(dev_dataset_cache):
+#         logger.info("Load tokenized dataset from cache at %s", train_dataset_cache)
+#         train_dataset = torch.load(train_dataset_cache)
+#         dev_dataset = torch.load(dev_dataset_cache)
+#         all_dataset = dict()
+#         all_dataset["train"] = train_dataset["train"]
+#         all_dataset["valid"] = dev_dataset["valid"]
+#     else:
+#         logger.info("Process dataset from %s", train_dataset_path)
+#         wow_file_train = cached_path(train_dataset_path)
+#         wow_file_dev = cached_path(dev_dataset_path)
+#         # file_dict = {"train": wow_file_train, "valid": wow_file_dev}
+#         file_dict = {"valid": wow_file_dev, "train": wow_file_train}
+#         all_dataset = dict()
+#         for name, file in file_dict.items():
+#             print(name, file)
+#             with open(file, "r", encoding="utf-8") as f:
+#                 dataset = json.loads(f.read())
+#                 dataset_enc = dict()
+#                 dataset_enc[name] = list()
+#                 for dialogue in dataset["data"]:
+#                     ID = dialogue["dialogID"]
+#                     persona = dialogue["persona"]
+#                     # knowledge = dialogue["knowledge"]
+#                     utterance = dialogue["utterance"]
+#
+#                     new_dialogue = dict()
+#                     new_dialogue["dialog"] = list()
+#                     for i, utt in enumerate(utterance):
+#                         key = "dialogue" + str(i+1)
+#                         dial = utt[key]
+#                         dial_new = dict()
+#                         dial_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in dial]
+#                         # persona_ground_enc = [1 if item==True else 0 for item in persona_ground]
+#                         # knowledge_can_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in knowledge_can]
+#                         # persona_can_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in persona_can]
+#                         dial_new["text"] = dial_enc
+#                         # dial_new["dialog"] = dial_enc[-1]
+#                         # dial_new["persona_candidates"] = persona_can_enc
+#                         # dial_new["persona_grounding"] = persona_ground_enc
+#                         # dial_new["knowledge_candidates"] = knowledge_can_enc
+#                         # dial_new["knowledge_answer_index"] = knowledge_answer
+#
+#                         new_dialogue["dialog"].append(dial_new)
+#                         tmp_count += len(dial_new["text"])
+#
+#                     new_dialogue["persona"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(persona.strip()))
+#                     dataset_enc[name].append(new_dialogue)
+#
+#         logger.info("Tokenize and encode the dataset")
+#
+#         dataset = dataset_enc
+#         all_dataset[name] = dataset_enc[name]
+#         # if name == 'train':
+#         #     print('saving train')
+#         #     torch.save(dataset, train_dataset_cache)
+#         # else:
+#         #     print('saving valid')
+#         #     torch.save(dataset, dev_dataset_cache)
+#     return dataset
+
+
+
+#
+#
+# def get_data_loaders(args, tokenizer):
+#     """ Prepare the dataset for training and evaluation """
+#
+#     focus = get_dataset_only_train_dev(tokenizer, args.train_dataset_path, args.dev_dataset_path)
+#
+#     model_name = args.model_name
+#
+#     logger.info("Build inputs and labels")
+#     datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
+#
+#     for dataset_name, dataset in focus.items():
+#         print(dataset_name, len(dataset))
+#         for data in dataset:
+#
+#             utterance = data['dialog']
+#             persona = data['persona']
+#             checked_sentences = []
+#             print(utterance)
+#             breakpoint()
+#             for i, utt in enumerate(utterance):
+#                 history = utt["text"][-2:]
+#
+#                 if model_name == 'BART' or model_name == 'transformer-encdec':
+#                         instance = build_input_for_bart(args, history, checked_sentences, persona, tokenizer)
+#
+#                 elif model_name == 'T5':
+#                         instance = build_input_for_t5(args, history, checked_sentences, persona, tokenizer)
+#
+#
+#                 for input_name, input_array in instance.items():
+#                     datasets[dataset_name][input_name].append(input_array)
+#
+#     logger.info("Pad inputs and convert to Tensor")
+#     tensor_datasets = {"train": [], "valid": []}
+#
+#     for dataset_name, dataset in datasets.items():
+#         dataset = pad_dataset(dataset, padding=tokenizer.pad_token_id)
+#         for input_name in ['input_ids', 'decoder_input_ids', 'lm_labels', 'persona']:
+#             tensor = torch.tensor(dataset[input_name], device=args.device)
+#             print(input_name, tensor.size())
+#             tensor_datasets[dataset_name].append(tensor)
+#
+#
+#     logger.info("Build train and validation dataloaders")
+#     train_dataset, valid_dataset = TensorDataset(*tensor_datasets["train"]), TensorDataset(*tensor_datasets["valid"])
+#
+#     return train_dataset, valid_dataset
