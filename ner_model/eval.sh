@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=7 python ner_model/eval_refiner.py --ner_coef 0.5 --epochs 1 --data_type focus --ptuning True --checkpoint /home/data/yoonna/Refiner/output/regen_add_ner/gen1_ner0.5_original/epoch35-valid_lm_loss1.4844.ckpt --output_dir /home/data/yoonna/Refiner/output/regen_add_ner/gen1_ner0.5_original

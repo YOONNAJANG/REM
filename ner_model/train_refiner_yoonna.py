@@ -5,7 +5,6 @@ import sys
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 from argparse import ArgumentParser
 from itertools import chain
 print(os.getcwd())
@@ -18,12 +17,11 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from transformers import AdamW
-from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus
+from data_utils_refine_yoonna import add_special_tokens_, special_tokens_focus, dataloader_focus
 from collections import Counter, defaultdict
+import numpy as np
+import random
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
-
-
-
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
 
@@ -34,11 +32,13 @@ class Model(LightningModule):
         self.save_hyperparameters()
         self.pseudo_token = self.hparams.pseudo_token
 
-        from transformers import BartTokenizer, BartConfig
-        from refiner_modules import BartEncDec
+        from transformers import AutoTokenizer, BartConfig
+        # from refiner_modules import BartEncDec as bartmodel
+        from refiner_modules_yoonna import BartEncDec_NER_txt as bartmodel
+
         self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
-        self.model = BartEncDec.from_pretrained(self.hparams.pretrained_model, config=self.config)
-        self.tokenizer = BartTokenizer.from_pretrained(self.hparams.pretrained_model)
+        self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.hparams.pretrained_model)
         # self.model.to(self.hparams.device)
         self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
         #add_special_tokens_(self.model, self.tokenizer, special_tokens=)
@@ -46,9 +46,9 @@ class Model(LightningModule):
         print('ptuning: ', self.hparams.ptuning)
         if self.hparams.ptuning==True:
             for name, param in self.model.named_parameters():
-                # if name.startswith('model.decoder.') or name.startswith('model.encoder.'):
-                #     param.requires_grad = False
-                print('not frozen params: ', name)
+                # print('not frozen params: ', name)
+                # if name.startswith('model.encoder.'):
+                param.requires_grad = False
             self.embeddings = get_embedding_layer(self.hparams, self.model)
             # set allowed vocab set
             self.vocab = self.tokenizer.get_vocab()
@@ -64,6 +64,18 @@ class Model(LightningModule):
             self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
 
+        if len(self.hparams.checkpoint) > 0:
+            checkpoint = torch.load(self.hparams.checkpoint)['state_dict']
+            # breakpoint()
+            self.checkpoint_loaded = dict()
+            self.checkpoint_prompt = dict()
+            for k, v in checkpoint.items():
+                if k.startswith('model.'):
+                    self.checkpoint_loaded[k[6:]] = v
+                else:
+                    self.checkpoint_prompt[k] = v
+
+            self.model.load_state_dict(self.checkpoint_loaded)
 
     def embed_inputs(self, queries):
         bz = queries.shape[0] #batchsize
@@ -73,17 +85,12 @@ class Model(LightningModule):
         blocked_indices = (queries == self.pseudo_token_id)
         blocked_indices =  torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
         replace_embeds = self.prompt_encoder() #spell_length, embdim
+        self.prompt_encoder.load_state_dict(self.checkpoint_prompt)
+
         for bidx in range(bz):
             for i in range(self.prompt_encoder.spell_length):
                 raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
         return raw_embeds
-
-    #
-    # def step(self, batch, batch_idx):
-    #
-    #     input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-    #     output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
-    #     return output
 
     def step(self, batch, batch_idx):
         # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
@@ -96,9 +103,6 @@ class Model(LightningModule):
         else:
             output = self.model(**batch)
         return output
-
-
-
 
     def training_step(self, batch, batch_idx):
         input_ids, decoder_input_ids, lm_labels, ner_labels = batch
@@ -171,7 +175,6 @@ class Model(LightningModule):
             ner_acc = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
             ner_f1 = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
 
-
             for i in outputs:
                 lm_loss += i['lm_loss']
                 cls_loss += i['ner_loss']
@@ -184,7 +187,6 @@ class Model(LightningModule):
             ppl = ppl / len(outputs)
             ner_acc = ner_acc / len(outputs)
             ner_f1 = ner_f1 / len(outputs)
-
 
             result = {'lm_loss': lm_loss, 'ner_loss': ner_loss, 'ppl': ppl, 'ner_acc': ner_acc, 'ner_f1': ner_f1}
 
@@ -256,18 +258,14 @@ class Model(LightningModule):
         print("Valid dataset (Batch, Seq length): {}".format(valid_dataset.tensors[0].shape))
         return DataLoader(valid_dataset, batch_size=self.hparams.valid_batch_size, shuffle=False)
 
-
-
-
 def main():
-
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, persona}")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
-    parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
-    parser.add_argument("--train_batch_size", type=int, default=32)
-    parser.add_argument("--valid_batch_size", type=int, default=8)
+    parser.add_argument("--checkpoint", type=str, default="facebook/bart-base", help="checkpoint path") #facebook/bart-base
+    parser.add_argument("--train_batch_size", type=int, default=8)
+    parser.add_argument("--valid_batch_size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
@@ -291,11 +289,15 @@ def main():
     parser.add_argument("--lstm_dropout", type=float, default=0.0)
     parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
     parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
+    parser.add_argument("--fewshot", type=bool, default=False)
+    parser.add_argument("--fewnum", type=int, default=100)
 
 
     args = vars(parser.parse_args())
     print("Using PyTorch Ver", torch.__version__)
     print("Fix Seed:", args['random_seed'])
+
+    seed_everything(args['random_seed'])
 
     model = Model(**args)
     model.eval()
@@ -321,8 +323,8 @@ def main():
 
 
     print(":: Start Training ::")
-    wandb.init(project='focus_regen', reinit=True, config=args, settings=wandb.Settings(start_method='fork'))
-    wandb_logger = WandbLogger(project='focus_regen')
+    wandb.init(project='Refiner_ner', reinit=True, config=args, settings=wandb.Settings(start_method='fork'))
+    wandb_logger = WandbLogger(project='Refiner_ner')
     wandb.watch(model, log_freq=20)
 
     trainer_args = {
@@ -338,10 +340,6 @@ def main():
         'precision': args['precision'],
         'logger': wandb_logger}
 
-    if args['ckpt'] not in ['facebook/bart-base']:
-        print(':: Load checkpoint from hparams ::')
-        print(torch.load(args['ckpt'])['hyper_parameters'])
-        trainer_args['resume_from_checkpoint'] = os.path.join('checkpoints', args['ckpt'])
 
     trainer = Trainer(**trainer_args)
     trainer.fit(model)

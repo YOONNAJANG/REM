@@ -58,20 +58,7 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
 
     history_, reply = history[:-1], history[-1]
 
-    # history_list = history
-    # history_context, history_question = history_list[:-1], history_list[-1]
-    # if len(history_context) == 0:
-    #     history_context = [1]
-    # else:
-    #     history_context = list(chain(*history_context))
-    #
-    # history_list_new = []
-    # history_list_new.append(history_context)
-    # history_list_new.append(history_question)
-    #
-    # history = [human_st if i % 2 == 0 else machine_st + s for i, s in enumerate(history)]
-
-    gold_knowledge =golden_knowledge
+    gold_knowledge = golden_knowledge #bos 포함
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     # print(len(gold_knowledge), gold_knowledge)
@@ -85,7 +72,7 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
     if args.ptuning == False:
         enc_sequence = gold_knowledge + persona_cans
         enc_sequence.extend(history_)
-        ner_label = [bos] + knowledge_label + persona_ner_label
+        ner_label = knowledge_label + persona_ner_label
 
     else:
         pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
@@ -94,23 +81,10 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
         ner_label = [-1] + [-1] * template[0] + knowledge_label[1:] + [-1] * template[1] + persona_ner_label + [-1] * template[2]
 
     dec_sequence = [dec_bos] + reply + [eos]
-    #
-    # else:
-    #     # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + [list(chain(*history))]
-    #     enc_sequence = gold_knowledge +persona_cans
-    #     enc_sequence.extend(list(chain(*history)))
-    #     dec_sequence = [dec_bos] + reply + [eos]
-    # # print(enc_sequence)
 
 
-    # print(enc_sequence)
-    # print(dec_sequence)
-    # print(ner_label)
-    # print()
-    ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
     instance = dict()
     instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
-    # instance['input_ids'] = list(chain(*enc_sequence))
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
     instance['ner_labels'] = ner_label
@@ -124,7 +98,7 @@ def dataloader_focus(args, tokenizer):
     dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev.json"
     dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/our_dev_cache.tar.gz"
 
-    regen_data = get_dataset_focus(tokenizer, train_dataset_path=train_dataset_path,
+    regen_data = get_dataset_focus_yoonna(tokenizer, train_dataset_path=train_dataset_path,
                                     train_dataset_cache=train_dataset_cache,
                                     dev_dataset_path=dev_dataset_path,
                                     dev_dataset_cache=dev_dataset_cache)
@@ -133,7 +107,9 @@ def dataloader_focus(args, tokenizer):
     print("Build inputs and labels")
     datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
     for (key, value) in regen_data.items():
-
+        if key == 'train' and args.fewshot == True:
+            random.shuffle(value)
+            value = value[:args.fewnum]
         for data in value:  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
             dialogID = data['dialogID']
             persona = data['persona']
@@ -302,11 +278,9 @@ def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_da
                         for tmp in modi_persona_ner_labels:
                             tmp_ = ner_label_map[tmp]
                             persona_ner_labels_enc.append(tmp_)
-                        # print(persona_ner_labels_enc)
+
                         assert len(persona_ner_labels_enc) == len(persona_can_enc)
-                        # for l, p in zip(persona_ner_labels_enc, persona_can_enc):
-                        #     assert  len(l) == len(p)
-                        ############################# knowledge NER ############################# knowledge NER
+
                         ############################# knowledge NER ############################# knowledge NER
 
                         knowledge_ner_labels = ["O"]*len(knowledge_sent)
@@ -324,15 +298,11 @@ def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_da
                         knowledge_can_split = list(knowledge_can_split)
                         assert len(knowledge_can_split) == len(knowledge_ner_labels)
 
-                        ### 공백, 거기에 맞는 태깅 제거
-
                         for ind, w in enumerate(knowledge_can_split):
                             if w == ' ':
                                 del knowledge_can_split[ind]
                                 del knowledge_ner_labels[ind]
                         assert len(knowledge_ner_labels) == len(knowledge_can_split)
-                        ### 늘어나는 토큰만큼 레이블추가
-
 
                         k_sent_words = knowledge_sent.split()
                         k_modi_labels = []
@@ -386,22 +356,14 @@ def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_da
                         assert len(modi_knowledge_ner_label)==len(knowledge_can_enc)
 
                         knowledge_ner_labels_enc = []
-                        # print("---------------")
-                        # print(modi_knowledge_ner_label)
-                        # print(knowledge_can_enc)
-                        # print(ner_label_map)
                         for tmp in modi_knowledge_ner_label:
                             tmp_ = [ner_label_map[tmp]]
                             knowledge_ner_labels_enc.extend(tmp_)
                         assert len(knowledge_ner_labels_enc) == len(knowledge_can_enc)
 
                         dial_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in dial]
-                        # knowledge_can_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in knowledge_can]
-                        # persona_can_enc_ = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in persona_can]
                         persona_can_enc = [tokenizer.convert_tokens_to_ids(sentence) for sentence in persona_can_enc]
                         knowledge_can_enc = tokenizer.convert_tokens_to_ids(knowledge_can_enc)
-                        # print(knowledge_can_enc)
-                        ######special token 없애기###########
 
                         for i, l in enumerate(persona_ner_labels_enc):
                             if l in [3,4,5]:
@@ -409,6 +371,148 @@ def get_dataset_focus(tokenizer, train_dataset_path, train_dataset_cache, dev_da
                         for i, l in enumerate(knowledge_ner_labels_enc):
                             if l in [3,4,5]:
                                 knowledge_ner_labels_enc[i] = -1
+
+                        dial_new["dialog"] = dial_enc
+                        dial_new["persona_grounding"] = persona_ground_enc
+                        dial_new["persona_candidates"] = persona_can_enc
+                        dial_new["persona_ner_label"] = persona_ner_labels_enc
+                        dial_new["golden_knowledge"] = knowledge_can_enc
+                        dial_new["knowledge_ner_label"] = knowledge_ner_labels_enc
+
+                        new_dialogue["utterance"].append(dial_new)
+                    persona_enc = persona_can_enc
+                    # knowledge_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in knowledge]
+                    new_dialogue["persona"] = persona_enc
+                    # new_dialogue["knowledge"] = knowledge_enc
+                    new_dialogue["dialogID"] = ID
+                    new_dialogue["landmark_link"] = dialogue["landmark_link"]  ##############################
+                    dataset_enc[name].append(new_dialogue)
+
+
+            logger.info("Tokenize and encode the dataset")
+            dataset = dataset_enc
+            all_dataset[name] = dataset_enc[name]
+            if name == 'train':
+                torch.save(dataset, train_dataset_cache)
+            else:
+                torch.save(dataset, dev_dataset_cache)
+    return all_dataset
+
+
+def get_dataset_focus_yoonna(tokenizer, train_dataset_path, train_dataset_cache, dev_dataset_path, dev_dataset_cache):
+    ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
+
+    token_char = tokenizer.convert_ids_to_tokens(5)[0]
+    # print(token_char)
+    def tokenize(obj):
+        if isinstance(obj, str):
+            return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+        if isinstance(obj, dict):
+            return dict((n, tokenize(o)) for n, o in obj.items())
+        return list(tokenize(o) for o in obj)
+    train_dataset_cache = train_dataset_cache + '_train_' + type(tokenizer).__name__
+    dev_dataset_cache = dev_dataset_cache + '_dev_' + type(tokenizer).__name__
+
+    if train_dataset_cache and os.path.isfile(train_dataset_cache):
+        print("Load tokenized dataset from cache at %s", train_dataset_cache)
+        train_dataset = torch.load(train_dataset_cache)
+        dev_dataset = torch.load(dev_dataset_cache)
+        all_dataset = dict()
+        all_dataset["train"] = train_dataset["train"]
+        all_dataset["valid"] = dev_dataset["valid"]
+    else:
+        print("Process dataset from %s", train_dataset_path)
+        file_train = cached_path(train_dataset_path)
+        file_dev = cached_path(dev_dataset_path)
+        file_dict = {"train": file_train, "valid": file_dev}
+        all_dataset = dict()
+
+        for name, file in file_dict.items():
+            with open(file, "r", encoding="utf-8") as f:
+                dataset = json.loads(f.read())
+                dataset_enc = dict()
+                dataset_enc[name] = list()
+                for dialogue in dataset:
+                    ID = dialogue["dialogID"]
+                    persona = dialogue["persona"]
+                    # knowledge = dialogue["knowledge"]
+                    utterance = dialogue["utterance"]
+                    new_dialogue = dict()
+                    new_dialogue["utterance"] = list()
+                    for i, utt in enumerate(utterance):
+                        key = "dialogue" + str(i+1)
+                        dial = utt[key]
+                        dial_new = dict()
+                        persona_can = utt["persona_candidate"]
+                        persona_ground = utt["persona_grounding"]
+                        knowledge_can = utt["knowledge_candidates"]
+                        knowledge_answer = utt["knowledge_answer_index"]
+                        knowledge_sent = knowledge_can[knowledge_answer]
+
+                        persona_can_enc = [tokenizer(sentence, add_special_tokens=False) for sentence in persona_can]
+                        persona_ground_enc = [1 if item==True else 0 for item in persona_ground]
+
+                        persona_ner_labels = []
+                        for i in range(5):
+                            persona_ner_labels.append(["O"]*len(persona_can_enc[i]['input_ids']))
+
+                        for ner_label in utt["NER_tagging"].keys(): #LOC, MISC, PER, ORG
+                            tmp_persona_index = utt["NER_tagging"][ner_label]["persona_index"] #p_1부터 p_5까지
+                            # print(tmp_persona_index)
+                            for i in range(5):
+                                if tmp_persona_index[f"p_{i+1}"] !=[]: # persona candidate에 태깅된 entity가 있는 경우
+                                    for p in range(len(tmp_persona_index[f"p_{i+1}"])):
+                                        start, end = tmp_persona_index[f"p_{i+1}"][p]
+                                        keyword = persona_can[i][start:end]
+                                        start_token_id = persona_can_enc[i].char_to_token(start)
+                                        end_token_id = persona_can_enc[i].char_to_token(end-1)
+                                        if start_token_id == None or end_token_id == None:
+                                            continue
+                                        persona_ner_labels[i][start_token_id] = "B"
+                                        persona_ner_labels[i][start_token_id+1:end_token_id+1] = ["I"] * (end_token_id - start_token_id)
+
+                        ############################# knowledge NER ############################# knowledge NER
+
+                        knowledge_can_enc = tokenizer(knowledge_sent, add_special_tokens=False)
+                        knowledge_ner_labels = ["O"]*len(knowledge_can_enc['input_ids'])
+
+                        for ner_label in utt["NER_tagging"].keys():
+                            tmp_knowledge_index = utt["NER_tagging"][ner_label]["knowledge_index"]
+                            # print("NER_LABEL: ", ner_label)
+                            for k in range(len(tmp_knowledge_index)):
+                                start, end = tmp_knowledge_index[k]
+                                keyword = knowledge_sent[start:end]
+                                start_token_id = knowledge_can_enc.char_to_token(start)
+                                end_token_id = knowledge_can_enc.char_to_token(end-1)
+                                if start_token_id == None or end_token_id == None:
+                                    continue
+                                knowledge_ner_labels[start_token_id] = "B"
+                                knowledge_ner_labels[start_token_id+1:end_token_id+1] = ["I"] * (end_token_id - start_token_id)
+
+                        persona_can_enc_new = []
+                        persona_ner_labels_enc = []
+                        for (can, ner_label) in zip(persona_can_enc, persona_ner_labels):
+                            persona_can_enc_new.append([tokenizer.convert_tokens_to_ids(tokenizer.persona_token)] + can['input_ids'])
+                            persona_ner_labels_enc.append([tokenizer.persona_token] + ner_label)
+
+                        knowledge_can_enc = [tokenizer.bos_token_id, tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)] + knowledge_can_enc['input_ids']
+                        knowledge_ner_labels = [tokenizer.bos_token, tokenizer.knowledge_token] + knowledge_ner_labels
+                        persona_can_enc = list(chain(*persona_can_enc_new))
+                        persona_ner_labels_enc = [[ner_label_map[label] for label in sent] for sent in persona_ner_labels_enc]
+                        persona_ner_labels_enc = list(chain(*persona_ner_labels_enc))
+                        knowledge_ner_labels_enc = [ner_label_map[label] for label in knowledge_ner_labels]
+
+                        for i, l in enumerate(persona_ner_labels_enc):
+                            if l in [3,4,5]:
+                                persona_ner_labels_enc[i] = -1
+                        for i, l in enumerate(knowledge_ner_labels_enc):
+                            if l in [3,4,5]:
+                                knowledge_ner_labels_enc[i] = -1
+
+                        dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in dial]
+
+                        assert len(persona_can_enc) == len(persona_ner_labels_enc)
+                        assert len(knowledge_can_enc) == len(knowledge_ner_labels_enc)
 
                         dial_new["dialog"] = dial_enc
                         dial_new["persona_grounding"] = persona_ground_enc

@@ -1,6 +1,4 @@
-#(c) 2021 NCSOFT Corporation & Korea University. All rights reserved.
 import os
-
 from argparse import ArgumentParser
 import wandb, json
 from torch.utils.data import DataLoader, TensorDataset
