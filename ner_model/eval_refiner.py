@@ -493,7 +493,7 @@ def main():
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
     parser.add_argument("--max_length", type=int, default=128, help="maximum length")
-    parser.add_argument("--min_length", type=int, default=30, help="minimum length")
+    parser.add_argument("--min_length", type=int, default=32, help="minimum length")
     parser.add_argument("--top_k", type=int, default=50, help="Filter top-k tokens before sampling {5, 10}, default=50")
     parser.add_argument("--top_p", type=float, default=1.0,
                         help="Nucleus filtering (top-p) before sampling, default=1.0")
