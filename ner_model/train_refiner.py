@@ -48,6 +48,9 @@ class Model(LightningModule):
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
         if self.hparams.ptuning==True:
+            self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer,
+                                                             special_tokens={'pseudo_token':self.pseudo_token})
+
             for name, param in self.model.named_parameters():
                 # print('not frozen params: ', name)
                 # if name.startswith('model.encoder.'):
@@ -275,7 +278,7 @@ def main():
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, persona}")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
-    parser.add_argument("--checkpoint", type=str, default="facebook/bart-base", help="checkpoint path") #facebook/bart-base
+    parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
     parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--valid_batch_size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=5e-5)

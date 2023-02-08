@@ -30,7 +30,7 @@ def add_special_tokens_(model, tokenizer, special_tokens):
     num_added_tokens = tokenizer.add_special_tokens({'additional_special_tokens': list(special_tokens.values())})
     tokenizer.__dict__.update(special_tokens)
     if num_added_tokens > 0:
-        print(num_added_tokens, 'tokens are added!')
+        print(num_added_tokens, 'tokens are added, total ', len(tokenizer), 'tokens in vocab.')
         model.resize_token_embeddings(new_num_tokens=len(tokenizer))
     return model, tokenizer
 

@@ -17,10 +17,9 @@
 
 
 #yoonna
-#CUDA_VISIBLE_DEVICES=6 nohup python ner_model/train_refiner.py --ner_coef 0.5 --epochs 1 --data_type focus --output_dir /home/data/yoonna/Refiner/output/regen_add_ner/original_1 > logs/original_1.log &
-CUDA_VISIBLE_DEVICES=7 nohup python ner_model/train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100 > logs/wo_prompt_100.log &
-CUDA_VISIBLE_DEVICES=6 nohup python ner_model/train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --output_dir /home/data/yoonna/Refiner/output/ner/w_prompt_rand_100 --ptuning --target_word_to_init > logs/w_prompt_rand_100.log &
-CUDA_VISIBLE_DEVICES=5 nohup python ner_model/train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --output_dir /home/data/yoonna/Refiner/output/ner/w_prompt_keyword_100 --ptuning --target_word_to_init keyword > logs/w_prompt_keyword_100.log &
+#CUDA_VISIBLE_DEVICES=7 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100 > logs/wo_prompt_100.log &
+#CUDA_VISIBLE_DEVICES=6 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --output_dir /home/data/yoonna/Refiner/output/ner/w_prompt_rand_100 --ptuning True > logs/w_prompt_rand_100.log &
+CUDA_VISIBLE_DEVICES=5 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --output_dir /home/data/yoonna/Refiner/output/ner/w_prompt_keyword_100 --ptuning True --target_word_to_init keyword > logs/w_prompt_keyword_100.log &
 
 
 #CUDA_VISIBLE_DEVICES=3 python ner_model/train_refiner.py --ner_coef 0.5 --epochs 1 --data_type focus --checkpoint /home/data/yoonna/Refiner/output/regen_add_ner/original_100/epoch27-valid_lm_loss1.4121.ckpt --output_dir /home/data/yoonna/Refiner/output/regen_add_ner/test
