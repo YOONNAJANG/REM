@@ -68,7 +68,8 @@ class Model(LightningModule):
             self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
 
-            init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
+            if len(self.hparams.target_word_to_init) > 0:
+                init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
 
         init_focus_tokens_embedding(special_tokens_focus, self.model, self.tokenizer)
 
@@ -299,7 +300,7 @@ def main():
     parser.add_argument("--lstm_dropout", type=float, default=0.0)
     parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
     parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
-    parser.add_argument("--target_word_to_init", type=str, default="banana")
+    parser.add_argument("--target_word_to_init", type=str, default="")
 
     #few shot setting
     parser.add_argument("--fewshot", type=bool, default=False)
