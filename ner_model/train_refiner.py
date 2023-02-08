@@ -36,8 +36,12 @@ class Model(LightningModule):
         self.pseudo_token = self.hparams.pseudo_token
 
         from transformers import AutoTokenizer, BartConfig
-        # from refiner_modules import BartEncDec as bartmodel
-        from refiner_modules import BartEncDec_NER_txt as bartmodel
+        if self.hparams.mode == "ner":
+            from refiner_modules import BartEncDec as bartmodel
+        elif self.hparams.mode == "gen":
+            from refiner_modules import BartEncDec_NER_txt as bartmodel
+        else:
+            raise NotImplementedError
 
         self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
         self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
@@ -98,7 +102,8 @@ class Model(LightningModule):
         blocked_indices = (queries == self.pseudo_token_id)
         blocked_indices = torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
         replace_embeds = self.prompt_encoder() #spell_length, embdim
-        self.prompt_encoder.load_state_dict(self.checkpoint_prompt, strict=False)
+        if len(self.hparams.checkpoint) > 0:
+            self.prompt_encoder.load_state_dict(self.checkpoint_prompt, strict=False)
 
         for bidx in range(bz):
             for i in range(self.prompt_encoder.spell_length):
@@ -276,6 +281,7 @@ class Model(LightningModule):
 def main():
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, persona}")
+    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen}")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")

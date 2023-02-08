@@ -10,7 +10,6 @@ from transformers import PreTrainedModel, PreTrainedTokenizer
 def init_prompt_embedding(
         pseudo_token_id: int, target_word_to_init: str, model: PreTrainedModel, tokenizer: PreTrainedTokenizer
 ) -> None:
-    breakpoint()
     assert pseudo_token_id < len(tokenizer.get_vocab()), \
         "Please check whether the pseudo token is included in the tokenizer\'s vocabulary."
 
