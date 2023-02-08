@@ -14,13 +14,10 @@ class Summary(nn.Module):
         self.dropout = nn.Dropout(0.1)
         self.summary = nn.Linear(emb_dim , 3)  # hiddensize, numclasses
 
-        # ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
-
     def forward(self, output):
         dropout_pooled_output = self.dropout(output)
         logits = self.summary(dropout_pooled_output)
         return logits
-
 
 class BartEncDec(BartForConditionalGeneration):
     _keys_to_ignore_on_load_missing = [r"h\.\d+\.attn_model\.masked_bias", r"lm_head\.weight"]
@@ -40,7 +37,6 @@ class BartEncDec(BartForConditionalGeneration):
             labels=None,
             ner_labels=None
             ):
-
 
         output_dict = dict()
 
@@ -98,7 +94,6 @@ class BartEncDec_NER_txt(BartForConditionalGeneration):
         self.id2label = {0:"O", 1:"B", 2:"I"}
         self.pad_token_id = config.pad_token_id
         self.max_len = config.max_position_embeddings
-
 
     def forward(
             self,
