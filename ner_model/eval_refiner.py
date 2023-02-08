@@ -211,14 +211,11 @@ class Model(LightningModule):
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
         if self.num_return_sequences > 1:
-
             new_out_ids = []
             for out_id in out_ids:
                 output_index = (out_id == 2).nonzero(as_tuple=True)[0][1].item()
                 new_out_ids.append(out_id[output_index:])
             out_ids = torch.stack(new_out_ids, 0)
-            # output_index = (out_ids == 2).nonzero(as_tuple=False)[:][1]
-            # out_ids = [snt[num:] for num, snt in zip(output_index, out_ids)]
         else:
             output_index = (out_ids[0] == 2).nonzero(as_tuple=True)[0][1].item()
             out_ids = out_ids[0][output_index:].unsqueeze(0)
@@ -389,11 +386,17 @@ class Model(LightningModule):
             if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
                     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
-                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+                    if len(pred_reply_wo_specialchar) == 0:
+                        dae += 0
+                    else:
+                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
                                                         self.hparams)
             else:
                 pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
-                dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+                if len(pred_reply_wo_specialchar) == 0:
+                    dae += 0
+                else:
+                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
                                                     self.hparams)
             # print('dae_score', dae)
 
