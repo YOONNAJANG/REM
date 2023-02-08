@@ -33,10 +33,6 @@ class BartEncDec(BartForConditionalGeneration):
         self.init_weights()
         self.id2label = {0:"O", 1:"B", 2:"I"}
 
-        # nSamples = [4813018, 399695, 900778]
-        # normedWeights = [1 - (x / sum(nSamples)) for x in nSamples]
-        # self.normedWeights = torch.FloatTensor(normedWeights).to("cuda")
-
     def forward(
             self,
             input_ids=None,
@@ -53,8 +49,6 @@ class BartEncDec(BartForConditionalGeneration):
         ner_logits_cls = outputs['encoder_last_hidden_state']  # batch, encseqlen, dim
         ner_logits = self.summary(ner_logits_cls).squeeze(-1)
         output_dict['ner_logits'] = ner_logits
-
-
 
         masked_lm_loss = None
         if labels is not None:
@@ -104,9 +98,7 @@ class BartEncDec_NER_txt(BartForConditionalGeneration):
         self.id2label = {0:"O", 1:"B", 2:"I"}
         self.pad_token_id = config.pad_token_id
         self.max_len = config.max_position_embeddings
-        nSamples = [4813018, 399695, 900778]
-        normedWeights = [1 - (x / sum(nSamples)) for x in nSamples]
-        self.normedWeights = torch.FloatTensor(normedWeights).to("cuda")
+
 
     def forward(
             self,
