@@ -7,6 +7,7 @@ import sys
 import os
 import copy
 from collections import Counter
+from tqdm import tqdm
 from transformers import cached_path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 # from baselines.FoCus.utils_focus import get_dataset_refine
@@ -40,7 +41,6 @@ def add_special_tokens_test(model, congen_model, tokenizer, special_tokens):
     num_added_tokens = tokenizer.add_special_tokens({'additional_special_tokens': list(special_tokens.values())})
     tokenizer.__dict__.update(special_tokens)
     if num_added_tokens > 0:
-        print(len(tokenizer))
         print(num_added_tokens, 'tokens are added!')
         print(len(tokenizer))
         model.resize_token_embeddings(new_num_tokens=len(tokenizer))
@@ -53,23 +53,20 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
     bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
     dec_bos = 2  # tokenizer.decoder_start_token_id
     # input_ids = [bos] + gt_knowledge + [eos] + corrputed[0] + [eos]
-    machine_st = tokenizer.convert_tokens_to_ids(tokenizer.machine_token)
+    # machine_st = tokenizer.convert_tokens_to_ids(tokenizer.machine_token)
     human_st = tokenizer.convert_tokens_to_ids(tokenizer.human_token)
-    persona_st = tokenizer.convert_tokens_to_ids(tokenizer.persona_token)
-    knowledge_st = tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)
+    # persona_st = tokenizer.convert_tokens_to_ids(tokenizer.persona_token)
+    # knowledge_st = tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)
 
     history_, reply = history[:-1], history[-1]
 
     gold_knowledge = golden_knowledge  # bos 포함
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
-    # print(len(gold_knowledge), gold_knowledge)
-    # print(len(knowledge_label),knowledge_label)
     history_ = [human_st] + history_[0]
     assert len(persona_ner_label) == len(persona_cans)
 
-    # if len(history) == 1:
-    # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + history
+
     if args.ptuning == False:
         enc_sequence = gold_knowledge + persona_cans
         enc_sequence.extend(history_)
@@ -92,6 +89,7 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
     instance['ner_labels'] = ner_label
     return instance
 
+
 def build_input_wow(tokenizer, history, persona_cans, golden_knowledge, knowledge_ner_label): #gk|p|history|u' -> u
     bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
     dec_bos = 2  # tokenizer.decoder_start_token_id
@@ -103,8 +101,20 @@ def build_input_wow(tokenizer, history, persona_cans, golden_knowledge, knowledg
 
     history_, reply = history[:-1], history[-1]
 
+    # history_list = history
+    # history_context, history_question = history_list[:-1], history_list[-1]
+    # if len(history_context) == 0:
+    #     history_context = [1]
+    # else:
+    #     history_context = list(chain(*history_context))
+    #
+    # history_list_new = []
+    # history_list_new.append(history_context)
+    # history_list_new.append(history_question)
+    #
+    # history = [human_st if i % 2 == 0 else machine_st + s for i, s in enumerate(history)]
 
-    gold_knowledge = golden_knowledge
+    gold_knowledge =golden_knowledge
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     # print(len(gold_knowledge), gold_knowledge)
@@ -113,22 +123,28 @@ def build_input_wow(tokenizer, history, persona_cans, golden_knowledge, knowledg
 
     # if len(history) == 1:
         # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + history
-    if args.ptuning == False:
-        enc_sequence = gold_knowledge + persona_cans
-        enc_sequence.extend(history_)
-        ner_label = knowledge_label + persona_ner_label
-
-    else:
-        pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
-        enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[1] + persona_cans + [pseudo_token_id] * template[2]
-        enc_sequence.extend(history_)
-        ner_label = [-1] + [-1] * template[0] + knowledge_label[1:] + [-1] * template[1] + persona_ner_label + [-1] * template[2]
+    enc_sequence = gold_knowledge + persona_cans
+    enc_sequence.extend(history_)
 
     dec_sequence = [dec_bos] + reply + [eos]
+    #
+    # else:
+    #     # enc_sequence = [[bos]] + [[persona_st] + list(chain(*persona))] + [list(chain(*history))]
+    #     enc_sequence = gold_knowledge +persona_cans
+    #     enc_sequence.extend(list(chain(*history)))
+    #     dec_sequence = [dec_bos] + reply + [eos]
+    # # print(enc_sequence)
 
+    # assert len(persona_ner_label) == len(persona_cans)
 
+    ner_label = [bos] + knowledge_label
+    # print(dec_sequence)
+    # print(ner_label)
+    # print()
+    ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
     instance = dict()
     instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+    # instance['input_ids'] = list(chain(*enc_sequence))
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
     instance['ner_labels'] = ner_label
@@ -155,9 +171,10 @@ def dataloader_focus(args, tokenizer):
         if key == 'train' and args.fewshot == True:
             random.shuffle(value)
             value = value[:args.fewnum]
-        for data in value:  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
-            dialogID = data['dialogID']
-            persona = data['persona']
+            print(f"Load only {len(value)} data for few-shot experiment.")
+        for data in tqdm(value):  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
+            # dialogID = data['dialogID']
+            # persona = data['persona']
             utterance = data['utterance']
             for i, utt in enumerate(utterance):
                 history = utt['dialog'][-(2 * args.max_history):]
@@ -203,7 +220,7 @@ def dataloader_focus_test(args, tokenizer):
         if key == 'train' and args.fewshot == True:
             random.shuffle(value)
             value = value[:args.fewnum]
-        for data in value:  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
+        for data in tqdm(value):  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
             dialogID = data['dialogID']
             persona = data['persona']
             utterance = data['utterance']

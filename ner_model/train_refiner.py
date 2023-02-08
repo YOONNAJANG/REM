@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 import sys
 
 import os
@@ -22,7 +22,7 @@ from transformers import AdamW
 from collections import Counter, defaultdict
 import numpy as np
 import random
-from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
 
 
@@ -33,10 +33,11 @@ class Model(LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.save_hyperparameters()
+        self.pseudo_token = self.hparams.pseudo_token
 
         from transformers import AutoTokenizer, BartConfig
         # from refiner_modules import BartEncDec as bartmodel
-        from refiner_modules_yoonna import BartEncDec_NER_txt as bartmodel
+        from refiner_modules import BartEncDec_NER_txt as bartmodel
 
         self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
         self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
@@ -59,12 +60,18 @@ class Model(LightningModule):
             # load prompt encoder
             self.hidden_size = self.embeddings.embedding_dim
             self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+            self.model.resize_token_embeddings(len(self.tokenizer))
 
             self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
             self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
             self.spell_length = sum(self.template)
             self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+
+            init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
+
+        init_focus_tokens_embedding(special_tokens_focus, self.model, self.tokenizer)
+
 
         if len(self.hparams.checkpoint) > 0:
             checkpoint = torch.load(self.hparams.checkpoint)['state_dict']
@@ -77,7 +84,7 @@ class Model(LightningModule):
                 else:
                     self.checkpoint_prompt[k] = v
 
-            self.model.load_state_dict(self.checkpoint_loaded)
+            self.model.load_state_dict(self.checkpoint_loaded, strict=False)
 
     def embed_inputs(self, queries):
         bz = queries.shape[0] #batchsize
@@ -85,9 +92,9 @@ class Model(LightningModule):
         queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
         raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
         blocked_indices = (queries == self.pseudo_token_id)
-        blocked_indices =  torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
+        blocked_indices = torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
         replace_embeds = self.prompt_encoder() #spell_length, embdim
-        self.prompt_encoder.load_state_dict(self.checkpoint_prompt)
+        self.prompt_encoder.load_state_dict(self.checkpoint_prompt, strict=False)
 
         for bidx in range(bz):
             for i in range(self.prompt_encoder.spell_length):
@@ -95,11 +102,9 @@ class Model(LightningModule):
         return raw_embeds
 
     def step(self, batch, batch_idx):
-        # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
         if self.hparams.ptuning == True:
             input_embeds = self.embed_inputs(batch['input_ids'])
             if 'input_ids' in batch:
-                del batch['input_ids']
                 batch['inputs_embeds'] = input_embeds
             output = self.model(**batch)
         else:
@@ -108,7 +113,14 @@ class Model(LightningModule):
 
 
     def training_step(self, batch, batch_idx):
-        result = self.step(batch, batch_idx)
+        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        inputs = {
+            'input_ids':input_ids,
+            'decoder_input_ids':decoder_input_ids,
+            'labels':lm_labels,
+            'ner_labels':ner_labels
+        }
+        result = self.step(inputs, batch_idx)
         lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
         loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
         self.log('train_loss', loss)
@@ -133,7 +145,14 @@ class Model(LightningModule):
         return result
 
     def validation_step(self, batch, batch_idx):
-        results = self.step(batch, batch_idx)
+        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+        inputs = {
+            'input_ids':input_ids,
+            'decoder_input_ids':decoder_input_ids,
+            'labels':lm_labels,
+            'ner_labels':ner_labels
+        }
+        results = self.step(inputs, batch_idx)
         #print(result.items())
 
         result = {}
@@ -280,6 +299,9 @@ def main():
     parser.add_argument("--lstm_dropout", type=float, default=0.0)
     parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
     parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
+    parser.add_argument("--target_word_to_init", type=str, default="banana")
+
+    #few shot setting
     parser.add_argument("--fewshot", type=bool, default=False)
     parser.add_argument("--fewnum", type=int, default=100)
 

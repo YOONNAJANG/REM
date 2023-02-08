@@ -1,23 +1,34 @@
+from setproctitle import setproctitle
+setproctitle("yoonna")
+
 import os, json
 import logging
 from argparse import ArgumentParser
+print(os.getcwd())
+
 import wandb
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, add_special_tokens_
+from datasets import load_metric
+import re
+from tqdm import tqdm
+
+
+from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+
 from datasets import load_metric
 from torchmetrics import CHRFScore
 from rouge_score import rouge_scorer
+from metrics.dae_factuality.evaluate_factuality import score_example_single_context
+from metrics.distinctN import distinct_n_sentence_level
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
 
-
 logger = logging.getLogger(__file__)
-
-
 
 
 class Model(LightningModule):
@@ -26,48 +37,130 @@ class Model(LightningModule):
         self.save_hyperparameters()
         self.do_sample = self.hparams.do_sample
         self.num_beams = self.hparams.num_beams
+        self.num_return_sequences = self.hparams.num_return_sequences
         self.top_k = self.hparams.top_k
+        self.max_length = self.hparams.max_length
+        self.min_length = self.hparams.min_length
         self.no_repeat_ngram_size = self.hparams.no_repeat_ngram_size
+        self.id2label = {0:"O", 1:"B", 2:"I"}
+        self.metric = load_metric("seqeval")
+
+        self.pseudo_token = self.hparams.pseudo_token
 
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
-        from refiner_modules import BartEncDec
         from transformers import BartForConditionalGeneration
+        from refiner_modules import BartEncDec_NER_txt as bartmodel
+
         self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
-        self.model = BartEncDec.from_pretrained(self.hparams.pretrained_model, config=self.config)
+        self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
         self.congenmodel = BartForConditionalGeneration.from_pretrained(self.hparams.pretrained_model, config=self.config)
         self.tokenizer = AutoTokenizer.from_pretrained(self.hparams.pretrained_model)
         # self.model.to(self.hparams.device)
         self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel, self.tokenizer, special_tokens=special_tokens_focus)
-        #add_special_tokens_(self.model, self.tokenizer, special_tokens=)
+        # self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
+
+
+        print('hparams: ', self.hparams)
+        print('ptuning: ', self.hparams.ptuning)
+        if self.hparams.ptuning==True:
+            for name, param in self.model.named_parameters():
+                # print('not frozen params: ', name)
+                # if name.startswith('model.encoder.'):
+                param.requires_grad = False
+            self.embeddings = get_embedding_layer(self.hparams, self.model)
+            # set allowed vocab set
+            self.vocab = self.tokenizer.get_vocab()
+            self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
+            self.template = tuple([int(item) for item in self.hparams.template.split(',')])
+            # load prompt encoder
+            self.hidden_size = self.embeddings.embedding_dim
+            self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+
+            self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
+            self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
+            self.spell_length = sum(self.template)
+            self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
+            self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+
+
         self.model.to(self.hparams.device)
         self.congenmodel.to(self.hparams.device)
         self.model.eval()
         self.congenmodel.eval()
+
+
         if len(self.hparams.checkpoint) > 0:
             checkpoint = torch.load(self.hparams.checkpoint)['state_dict']
-            checkpoint = {k[6:]: v for k, v in checkpoint.items()}
-            self.model.load_state_dict(checkpoint)
-            self.congenmodel.load_state_dict(checkpoint, strict=False)
+            checkpoint_congen = {k[6:]: v for k, v in checkpoint.items()}
+            self.congenmodel.load_state_dict(checkpoint_congen, strict=False)
 
+            self.checkpoint_loaded = dict()
+            self.checkpoint_prompt = dict()
+            for k, v in checkpoint.items():
+                if k.startswith('model.'):
+                    self.checkpoint_loaded[k[6:]] = v
+                else:
+                    self.checkpoint_prompt[k] = v
 
+            self.model.load_state_dict(self.checkpoint_loaded, strict=False)
+            # self.congenmodel.load_state_dict(checkpoint, strict=False)
+
+    def embed_inputs(self, queries):
+        bz = queries.shape[0] #batchsize
+        queries_for_embedding = queries.clone()
+        queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
+        raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
+        blocked_indices = (queries == self.pseudo_token_id)
+        blocked_indices = torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
+        replace_embeds = self.prompt_encoder() #spell_length, embdim
+        self.prompt_encoder.load_state_dict(self.checkpoint_prompt, strict=False)
+        for bidx in range(bz):
+            for i in range(self.prompt_encoder.spell_length):
+                raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
+        return raw_embeds
 
 
     def step(self, batch, batch_idx):
-
-        input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-
-        with torch.no_grad():
-            output = self.model(input_ids=input_ids, decoder_input_ids=decoder_input_ids, lm_labels=lm_labels, ner_labels=ner_labels)
-
+        if self.hparams.ptuning == True:
+            input_embeds = self.embed_inputs(batch['input_ids'])
+            if 'input_ids' in batch:
+                batch['inputs_embeds'] = input_embeds
+            output = self.model(**batch)
+        else:
+            output = self.model(**batch)
         return output
+
+    # def generation_step(self, batch, batch_idx):
+    #     # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
+    #     if self.hparams.ptuning == True:
+    #         input_embeds = self.embed_inputs(batch['input_ids'])
+    #         if 'input_ids' in batch:
+    #             del batch['input_ids']
+    #             batch['inputs_embeds'] = input_embeds
+    #         output = self.model(**batch)
+    #     else:
+    #         output = self.model(**batch)
+    #     return output
 
     def test_step(self, batch, batch_idx):
         input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-        mask = (lm_labels != self.tokenizer.pad_token_id)
-        reply = lm_labels[mask]
-        results = self.step(batch, batch_idx)
+
+        reply_mask = (lm_labels != -100)
+        reply = lm_labels[reply_mask]
+
+        input_mask = (input_ids != self.tokenizer.pad_token_id)
+        input_ids = input_ids[input_mask].unsqueeze(0)
+        ner_labels = ner_labels[input_mask].unsqueeze(0)
+
+        inputs = {
+            'input_ids':input_ids,
+            'decoder_input_ids':decoder_input_ids,
+            'labels':lm_labels,
+            'ner_labels':ner_labels
+        }
+        results = self.step(inputs, batch_idx)
         # print(result.items()) # ner_logits, ner_loss, lm_logits, lm_loss, ner_results
-        lm_logits = results["lm_logits"]
+        lm_logits, ner_logits = results['lm_logits'], results['ner_logits']
 
         result = {}
         for k, v in results.items():
@@ -76,84 +169,103 @@ class Model(LightningModule):
             else:
                 result[k] = v
 
+        ppl = torch.exp(results["lm_loss"])
 
-        lm_logits_flat_shifted = lm_logits[:, :-1, :].contiguous().view(-1, lm_logits.size(-1))
-        lm_labels_flat_shifted = lm_labels[:, 1:].contiguous().view(-1)
-        lm_criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
-        lm_loss = lm_criterion(lm_logits_flat_shifted, lm_labels_flat_shifted)
-        ppl = torch.exp(lm_loss)
+        predictions = torch.argmax(ner_logits, dim=-1)
+        pred_all = (predictions == 1) + (predictions == 2)
+        chosen_tok_list = []
+        for batch_index, batch_item in enumerate(pred_all):
+            for item_idx, item in enumerate(batch_item):
+                if item == True:
+                    chosen_tok_list.append(input_ids[batch_index][item_idx])
+            chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list + [torch.tensor(2).to(input_ids.device)]
+            new_dec_input = torch.stack(chosen_tok_list, 0).unsqueeze(0)
+
+        true_predictions = [
+            [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
+            for prediction, label in zip(predictions, ner_labels)
+        ]
+        true_labels = [
+            [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
+            for prediction, label in zip(predictions, ner_labels)
+        ]
+
+        results = self.metric.compute(predictions=true_predictions, references=true_labels)
+        ner_results = {
+            "precision": results["overall_precision"],
+            "recall": results["overall_recall"],
+            "f1": results["overall_f1"],
+            "accuracy": results["overall_accuracy"]}
 
         with torch.no_grad():
-            num_beams = self.hparams.num_beams
-            # print(input_ids)
-            out_ids = self.congenmodel.generate(input_ids=input_ids,do_sample=self.do_sample, num_beams=self.num_beams, top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size)
-        # print((reply == -100).nonzero(as_tuple=True))
-        if len((reply == -100).nonzero(as_tuple=True)[0]) == 0:
+            out_ids = self.congenmodel.generate(input_ids=input_ids, decoder_input_ids=new_dec_input,
+                                          do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                          top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                          min_length=self.min_length, max_length=self.max_length)
+        # if len((reply == -100).nonzero(as_tuple=True)[0]) == 0:
+        #     reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
+        # else:
+        #     reply_ind = (reply == -100).nonzero(as_tuple=True)[0][0]
+        #     reply = self.tokenizer.decode(reply[:reply_ind].tolist(), skip_special_tokens=True)
 
-            reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
+        reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
+        input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+        if self.num_return_sequences > 1:
+
+            new_out_ids = []
+            for out_id in out_ids:
+                output_index = (out_id == 2).nonzero(as_tuple=True)[0][1].item()
+                new_out_ids.append(out_id[output_index:])
+            out_ids = torch.stack(new_out_ids, 0)
+            # output_index = (out_ids == 2).nonzero(as_tuple=False)[:][1]
+            # out_ids = [snt[num:] for num, snt in zip(output_index, out_ids)]
         else:
-            reply_ind = (reply == -100).nonzero(as_tuple=True)[0][0]
-            reply = self.tokenizer.decode(reply[:reply_ind].tolist(), skip_special_tokens=True)
+            output_index = (out_ids[0] == 2).nonzero(as_tuple=True)[0][1].item()
+            out_ids = out_ids[0][output_index:].unsqueeze(0)
 
 
-        # print(reply)
-        # print(input_ids)
-        input_text = self.tokenizer.decode(input_ids[0].tolist(), skip_special_tokens=True)
+        out_ids = self.tokenizer.batch_decode(out_ids, skip_special_tokens=True)
 
-        if num_beams > 1:
-            out_ids = [self.tokenizer.decode(output_item, skip_special_tokens=True) for output_item in out_ids.tolist()]
-        else:
-            out_ids = self.tokenizer.decode(out_ids.squeeze(0).tolist(), skip_special_tokens=True)
 
-        print('input: ', input_text, '\n true: ', reply, '\n pred: ', out_ids)
+        knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+        knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
+        persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
+        persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
+
+        knowledge = input_ids[:, knoweldge_sp_idx + 1:persona_sp_idx]
+        knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=True)
+
+        # print('input: ', input_text, '\n true: ', reply, '\n pred: ', out_ids)
         result = dict()
-        print('ppl: ', ppl)
+        # print('ppl: ', ppl)
         result['ppl'] = ppl
         result['y_true_text'] = reply  # tokenize!!!
         result['y_pred_text'] = out_ids
         result['input_text'] = input_text
+        result['ner_results'] = ner_results
+        result['knowledge'] = knowledge
+
         return result
 
-    def epoch_end(self, outputs, state='train'):
 
-        if state=='train' or state=='val':
-            lm_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
-            cls_loss = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
-            ppl = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
-            ner_acc = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
-            ner_f1 = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
+    def epoch_end(self, outputs, state='test'):
 
+        text_result = []
+        for index, i in enumerate(outputs):
+            text_dict = dict()
+            text_dict['ppl'] = i['ppl']
+            text_dict['y_true_text'] = i['y_true_text']
+            text_dict['y_pred_text'] = i['y_pred_text']
+            text_dict['input_text'] = i['input_text']
+            text_dict['ner_results'] = i['ner_results']
+            text_dict['knowledge'] = i['knowledge']
 
-            for i in outputs:
-                lm_loss += i['lm_loss']
-                cls_loss += i['ner_loss']
-                ppl += torch.exp(i['lm_loss'])
-                ner_acc += i["ner_results"]["accuracy"]
-                ner_f1 += i["ner_results"]["f1"]
+            # text_dict['model_pred_knowledge'] = i['model_pred_knowledge']
 
-            lm_loss = lm_loss / len(outputs)
-            ner_loss = cls_loss / len(outputs)
-            ppl = ppl / len(outputs)
-            ner_acc = ner_acc / len(outputs)
-            ner_f1 = ner_f1 / len(outputs)
+            text_result.append(text_dict)
 
-
-            result = {'lm_loss': lm_loss, 'ner_loss': ner_loss, 'ppl': ppl, 'ner_acc': ner_acc, 'ner_f1': ner_f1}
-            return result
-        else:
-            text_result = []
-            for index, i in enumerate(outputs):
-                text_dict = dict()
-                text_dict['ppl'] = i['ppl']
-                text_dict['y_true_text'] = i['y_true_text']
-                text_dict['y_pred_text'] = i['y_pred_text']
-                text_dict['input_text'] = i['input_text']
-                # text_dict['model_pred_knowledge'] = i['model_pred_knowledge']
-
-                text_result.append(text_dict)
-
-            result = {'text_result': text_result}
-            return result
+        result = {'text_result': text_result}
+        return result
 
     def test_epoch_end(self, outputs):
         result = self.epoch_end(outputs, state='test')
@@ -176,6 +288,10 @@ class Model(LightningModule):
         dae_model.to(self.hparams.device)
 
         text_result = result['text_result']
+        ner_acc = 0
+        ner_rec = 0
+        ner_prec = 0
+        ner_f1 = 0
         ppl = 0
         r1 = 0
         r2 = 0
@@ -192,13 +308,20 @@ class Model(LightningModule):
 
         result_list = list()
 
-        for test_data_index, test_data in enumerate(text_result):
+        for test_data_index, test_data in enumerate(tqdm(text_result)):
             pred_dict = dict()
             ppl += test_data['ppl']
-            print('ppl accumulated: ', ppl)
+            # print('ppl accumulated: ', ppl)
             gold_reply = test_data['y_true_text']
             pred_reply = test_data['y_pred_text']
             input = test_data['input_text']
+
+            ner_acc += test_data['ner_results']['accuracy']
+            ner_rec += test_data['ner_results']['recall']
+            ner_prec += test_data['ner_results']['precision']
+            ner_f1 += test_data['ner_results']['f1']
+
+            knowledge = test_data['knowledge']
 
             pred_dict['input'] = input
             pred_dict['gold'] = gold_reply
@@ -207,90 +330,99 @@ class Model(LightningModule):
             result_list.append(pred_dict)
 
             # ROUGE
-            if self.hparams.num_beams > 1:
+            if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
                     r = rouge_metric.score(pred_reply_item, gold_reply)
                     r1 += r['rouge1'].fmeasure
                     r2 += r['rouge2'].fmeasure
                     rl += r['rougeL'].fmeasure
             else:
-                r = rouge_metric.score(pred_reply, gold_reply)
+                r = rouge_metric.score(pred_reply[0], gold_reply)
                 r1 += r['rouge1'].fmeasure
                 r2 += r['rouge2'].fmeasure
                 rl += r['rougeL'].fmeasure
 
             # sacre BLEU
-            if self.hparams.num_beams > 1:
+            if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
                     bleu += bleu_metric.compute(predictions=[pred_reply_item], references=[[gold_reply]])['score']
             else:
-                bleu += bleu_metric.compute(predictions=[pred_reply], references=[[gold_reply]])['score']
+                bleu += bleu_metric.compute(predictions=pred_reply, references=[[gold_reply]])['score']
+
 
             # ChrF++
-            if self.hparams.num_beams > 1:
+            if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
-                    chrf += chrf_metric([pred_reply_item], [[gold_reply]]).clone().detach()
+                    pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+                    chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
 
             else:
-                chrf += chrf_metric([pred_reply], [[gold_reply]]).clone().detach()
-
-
+                pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+                chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
 
             # print('factcc')
-            # # FactCC
-            # if self.hparams.num_beams > 1:
-            #     knowledge_input = factcc_tokenizer.tokenize(model_pred_knowledge)
-            #     for pred_reply_item in pred_reply:
-            #         generated_input = factcc_tokenizer.tokenize(pred_reply_item)
-            #         factcc_input = [factcc_tokenizer.cls_token] + knowledge_input + [
-            #             factcc_tokenizer.sep_token] + generated_input + [factcc_tokenizer.sep_token]
-            #         factcc_input = torch.tensor(factcc_tokenizer.convert_tokens_to_ids(factcc_input)).to(
-            #             self.hparams.device).unsqueeze(0)
-            #         with torch.no_grad():
-            #             factcc_output += factcc_model(factcc_input).argmax().item()
-            # else:
-            #     knowledge_input = factcc_tokenizer.tokenize(model_pred_knowledge)
-            #     generated_input = factcc_tokenizer.tokenize(pred_reply)
-            #     factcc_input = [factcc_tokenizer.cls_token] + knowledge_input + [
-            #         factcc_tokenizer.sep_token] + generated_input + [factcc_tokenizer.sep_token]
-            #     factcc_input = torch.tensor(factcc_tokenizer.convert_tokens_to_ids(factcc_input)).to(
-            #         self.hparams.device).unsqueeze(0)
-            #     with torch.no_grad():
-            #         factcc_output += factcc_model(factcc_input).argmax().item()
-            #
-            # print('dae')
-            # # dae_factuality
-            # if self.hparams.num_beams > 1:
-            #     for pred_reply_item in pred_reply:
-            #         dae += score_example_single_context(pred_reply_item, model_pred_knowledge, dae_model, dae_tokenizer,
-            #                                             self.hparams)
-            # else:
-            #     dae += score_example_single_context(pred_reply, model_pred_knowledge, dae_model, dae_tokenizer,
-            #                                         self.hparams)
-            # # print('dae_score', dae)
-            #
-            # print('distN')
-            # # distinct-N
-            # if self.hparams.num_beams > 1:
-            #     for pred_reply_item in pred_reply:
-            #         dist1 += distinct_n_sentence_level(pred_reply_item, 1)
-            #         dist2 += distinct_n_sentence_level(pred_reply_item, 2)
-            # else:
-            #     dist1 += distinct_n_sentence_level(pred_reply, 1)
-            #     dist2 += distinct_n_sentence_level(pred_reply, 2)
+            # FactCC
+            if self.hparams.num_return_sequences > 1:
+                knowledge_input = factcc_tokenizer.tokenize(knowledge)
+                for pred_reply_item in pred_reply:
+                    pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+                    generated_input = factcc_tokenizer.tokenize(pred_reply_wo_specialchar)
+                    factcc_input = [factcc_tokenizer.cls_token] + knowledge_input + [
+                        factcc_tokenizer.sep_token] + generated_input + [factcc_tokenizer.sep_token]
+                    factcc_input = torch.tensor(factcc_tokenizer.convert_tokens_to_ids(factcc_input)).to(
+                        self.hparams.device).unsqueeze(0)
+                    with torch.no_grad():
+                        factcc_output += factcc_model(factcc_input).argmax().item()
+            else:
+                pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+                knowledge_input = factcc_tokenizer.tokenize(knowledge)
+                generated_input = factcc_tokenizer.tokenize(pred_reply_wo_specialchar)
+                factcc_input = [factcc_tokenizer.cls_token] + knowledge_input + [
+                    factcc_tokenizer.sep_token] + generated_input + [factcc_tokenizer.sep_token]
+                factcc_input = torch.tensor(factcc_tokenizer.convert_tokens_to_ids(factcc_input)).to(
+                    self.hparams.device).unsqueeze(0)
+                with torch.no_grad():
+                    factcc_output += factcc_model(factcc_input).argmax().item()
 
-        chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_beams)
-        rouge1_result = r1 / ((test_data_index + 1) * self.hparams.num_beams)
-        rouge2_result = r2 / ((test_data_index + 1) * self.hparams.num_beams)
-        rougel_result = rl / ((test_data_index + 1) * self.hparams.num_beams)
-        bleu_result = bleu / ((test_data_index + 1) * self.hparams.num_beams)
+            # print('dae')
+            # dae_factuality
+            if self.hparams.num_return_sequences > 1:
+                for pred_reply_item in pred_reply:
+                    pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+                                                        self.hparams)
+            else:
+                pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+                dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+                                                    self.hparams)
+            # print('dae_score', dae)
+
+            # print('distN')
+            # distinct-N
+            if self.hparams.num_return_sequences > 1:
+                for pred_reply_item in pred_reply:
+                    dist1 += distinct_n_sentence_level(pred_reply_item, 1)
+                    dist2 += distinct_n_sentence_level(pred_reply_item, 2)
+            else:
+                dist1 += distinct_n_sentence_level(pred_reply[0], 1)
+                dist2 += distinct_n_sentence_level(pred_reply[0], 2)
+
+        chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        rouge1_result = r1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        rouge2_result = r2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        rougel_result = rl / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        bleu_result = bleu / ((test_data_index + 1) * self.hparams.num_return_sequences)
         print("ppl :", ppl)
         print("datalen: ", test_data_index + 1)
         ppl_result = ppl / (test_data_index + 1)
-        # factcc_result = factcc_output / ((test_data_index + 1) * self.hparams.num_beams)
-        # dae_result = dae / ((test_data_index + 1) * self.hparams.num_beams)
-        dist1_result = dist1 / ((test_data_index + 1) * self.hparams.num_beams)
-        dist2_result = dist2 / ((test_data_index + 1) * self.hparams.num_beams)
+        ner_acc_result = ner_acc / (test_data_index + 1)
+        ner_rec_result = ner_rec / (test_data_index + 1)
+        ner_prec_result = ner_prec / (test_data_index + 1)
+        ner_f1_result = ner_f1 / (test_data_index + 1)
+        factcc_result = factcc_output / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        dae_result = dae / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        dist1_result = dist1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        dist2_result = dist2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
 
         result_dict = dict()
         result_dict['chrF++'] = chrf_result.item()
@@ -299,9 +431,12 @@ class Model(LightningModule):
         result_dict['rougeL'] = rougel_result
         result_dict['bleu'] = bleu_result
         result_dict['ppl'] = ppl_result.item()
-
-        # result_dict['factcc_result'] = factcc_result
-        # result_dict['dae_result'] = dae_result
+        result_dict['ner_acc'] = ner_acc_result
+        result_dict['ner_rec'] = ner_rec_result
+        result_dict['ner_prec'] = ner_prec_result
+        result_dict['ner_f1'] = ner_f1_result
+        result_dict['factcc_result'] = factcc_result
+        result_dict['dae_result'] = dae_result
         result_dict['dist1_result'] = dist1_result
         result_dict['dist2_result'] = dist2_result
 
@@ -319,9 +454,7 @@ class Model(LightningModule):
         return self.epoch_end(outputs, state='test')
 
 
-
     def dataloader(self):
-
         if self.hparams.data_type == "focus":
             test_dataset = dataloader_focus_test(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "wow":
@@ -345,7 +478,6 @@ def main():
                         default='/home/mnt/ssh5131/FoCus_data/our_data/focus_cache.tar.gz',
                         help="Path or url of the dataset cache")
     parser.add_argument("--flag", type=str, default="", help="add description of the output file")
-    parser.add_argument("--template", type=str, default="50,50,50")
     parser.add_argument("--model_name", type=str, default="BART", help="{BART, T5, LED, transformer-encdec}")
     parser.add_argument("--model_path", type=str, default="facebook/bart-base",
                         help="pre-trained model path among {facebook/bart-base, t5-base, allenai/led-base-16384, facebook/bart-large, t5-large, allenai/led-large-16384}")
@@ -354,25 +486,19 @@ def main():
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
     parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for testing")
-    parser.add_argument("--lr", type=float, default=5e-5)
-    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--random_seed", type=int, default=644128)
-    parser.add_argument("--lm_coef", type=float, default=1.0, help="Coefficient for LM loss")
-    parser.add_argument("--ner_coef", type=float, default=1.0, help="Coefficient for NER loss")
-    parser.add_argument("--optimizer", type=str, default="AdamW", help="{AdamW, AdamP}")
-    parser.add_argument("--lr_scheduler", type=str, default="lambdalr", help="{exp, lambdalr}")
-    parser.add_argument("--grad_accum", type=int, default=32, help="Accumulate gradients on several steps")
-    parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
     parser.add_argument("--precision", type=int, default=32, help="{16,32,64}")
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
-    parser.add_argument("--ptuning", type=bool, default=False)
+    parser.add_argument("--max_length", type=int, default=128, help="maximum length")
+    parser.add_argument("--min_length", type=int, default=30, help="minimum length")
     parser.add_argument("--top_k", type=int, default=50, help="Filter top-k tokens before sampling {5, 10}, default=50")
     parser.add_argument("--top_p", type=float, default=1.0,
                         help="Nucleus filtering (top-p) before sampling, default=1.0")
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
+    parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
     parser.add_argument("--factcc_model", type=str, default="/home/data/ssh5131/focus_modeling/factcc/factcc-checkpoint", help="pre-trained factcc model directory")
     parser.add_argument("--dae_model", type=str, default="/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
@@ -380,6 +506,15 @@ def main():
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
     parser.add_argument("--do_sample", type=bool, default=True)
+
+    #for p-tuning
+    parser.add_argument("--ptuning", type=bool, default=False)
+    parser.add_argument("--template", type=str, default="50,50,50") #prompt size
+    parser.add_argument("--lstm_dropout", type=float, default=0.0)
+    parser.add_argument("--pseudo_token", type=str, default='[PROMPT]')
+    parser.add_argument("--vocab_strategy", type=str, default="original", choices=['original', 'shared', 'lama'])
+
+
     args = vars(parser.parse_args())
     print("Using PyTorch Ver", torch.__version__)
     print("Fix Seed:", args['random_seed'])
