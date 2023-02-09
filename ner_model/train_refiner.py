@@ -51,6 +51,7 @@ class Model(LightningModule):
         #add_special_tokens_(self.model, self.tokenizer, special_tokens=)
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
+        print('mode: ', self.hparams.mode)
         if self.hparams.ptuning==True:
             self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer,
                                                              special_tokens={'pseudo_token':self.pseudo_token})

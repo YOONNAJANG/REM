@@ -115,7 +115,7 @@ class Model(LightningModule):
 
 
     def training_step(self, batch, batch_idx):
-        input_ids, decoder_input_ids, lm_labels, persona = batch
+        input_ids, decoder_input_ids, lm_labels = batch
 
         # print("\ninput_ids.size():", input_ids.size())
         # print("\ninput_ids:", input_ids)
@@ -124,7 +124,7 @@ class Model(LightningModule):
         # print("\nlm_labels.size():", lm_labels.size())
         # print("\nlm_labels:", lm_labels)
         # exit()
-
+    
         inputs = {'input_ids': input_ids, 'decoder_input_ids': decoder_input_ids, 'labels': lm_labels}
         result = self.step(inputs, batch_idx)
         loss = result['loss']
@@ -145,7 +145,7 @@ class Model(LightningModule):
 
     def validation_step(self, batch, batch_idx):
 
-        input_ids, decoder_input_ids, lm_labels, persona = batch
+        input_ids, decoder_input_ids, lm_labels = batch
         inputs = {'input_ids': input_ids, 'decoder_input_ids': decoder_input_ids, 'labels': lm_labels}
         result = self.step(inputs, batch_idx)
         loss = result['loss']
@@ -210,14 +210,14 @@ def main():
                     help="pre-trained model path among {facebook/bart-base, t5-base, allenai/led-base-16384, facebook/bart-large, t5-large, allenai/led-large-16384}")  # or "facebook/bart-large"
     parser.add_argument("--checkpoint", type=str, default="",
                         help="load checkpoint and resume train")
-    parser.add_argument("--train_dataset_path", type=str, default="./data/train.json",
+    parser.add_argument("--train_dataset_path", type=str, default="data/train.json",
                         help="Path or url of the dataset.")
-    parser.add_argument("--dev_dataset_path", type=str, default="./data/valid_random_split.json",
+    parser.add_argument("--dev_dataset_path", type=str, default="data/valid_random_split.json",
                         help="Path or url of the dataset.")
     parser.add_argument("--max_history", type=int, default=3, help="Number of previous exchanges to keep in history")
-    parser.add_argument("--train_batch_size", type=int, default=16, help="Batch size for training")
+    parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
-    parser.add_argument("--grad_accum", type=int, default=16,
+    parser.add_argument("--grad_accum", type=int, default=32,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--lr_scheduler", type=str, default="lambdalr", help="{exp, lambdalr}")
@@ -240,7 +240,7 @@ def main():
     print(":: Using PyTorch Ver", torch.__version__, " ::")
     print(":: Fix Seed", args['seed'], " ::")
     from setproctitle import setproctitle
-    setproctitle("suhyun")
+    setproctitle("leejeongwoo")
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)

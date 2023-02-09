@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, default="/home/mnt/yoonna/personachat/model/bart_base/both_ori_both_ori/epoch8-ppl10.7132.ckpt/global_step1155/mp_rank_00_model_states.pt", help="load checkpoint and resume train")
     parser.add_argument("--test_dataset_path", type=str, default="/home/yoonna/persona_chat/data/personachat/test_both_revised.txt")
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
-    parser.add_argument("--test_batch_size", type=int, default=128, help="Batch size for validation")
+    parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for validation")
     parser.add_argument("--grad_accum", type=int, default=8, help="Accumulate gradients on several steps")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--flag", type=str, default="bart_base_", help="Assign the name of the folder")
     parser.add_argument("--seed", type=int, default=644128)
-    parser.add_argument("--output_dir", type=str, default="/home/mnt/yoonna/personachat/model/", help="directory where the model to be saved on")
+    parser.add_argument("--output_dir", type=str, default="./inference_ourput/", help="directory where the model to be saved on")
     parser.add_argument("--test_mode", type=bool, default=False)
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--num_return_sequences", type=int, default=1)
@@ -53,7 +53,7 @@ def main():
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)
     from setproctitle import setproctitle
-    setproctitle("Yoonna")
+    setproctitle("leejeongwoo")
 
     if args['gpu_num'] == 1:
         args['distributed'] = False
@@ -105,6 +105,7 @@ def main():
 
     print(":: Start Testing ::")
     trainer = Trainer(**trainer_args)
+
     model.freeze()
     with torch.no_grad():
         trainer.test(model)

@@ -456,12 +456,13 @@ class Model(LightningModule):
 
         return self.epoch_end(outputs, state='test')
 
-
     def dataloader(self):
         if self.hparams.data_type == "focus":
-            test_dataset = dataloader_focus_test(self.hparams, self.tokenizer)
+            test_dataset = dataloader_focus_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
+                                                 self.hparams.test_dataset_cache)
         elif self.hparams.data_type == "wow":
-            test_dataset = None
+            test_dataset = dataloader_wow_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
+                                               self.hparams.test_dataset_cache)
         elif self.hparams.data_type == "persona":
             test_dataset = None, None
         return test_dataset

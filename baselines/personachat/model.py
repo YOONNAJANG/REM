@@ -252,6 +252,7 @@ class Model_Eval(LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.save_hyperparameters()  # kwargs are saved to self.hparams
+
         self.pseudo_token = self.hparams.pseudo_token
 
         if self.hparams.model_name == 'BART':
@@ -317,10 +318,13 @@ class Model_Eval(LightningModule):
         test_dataset = get_testdata_loaders(self.hparams, self.tokenizer)
         self.test_dataset = test_dataset
         print("Test dataset (Examples, Seq length): {}".format(test_dataset.tensors[0].shape))
-        self.num_beams = self.hparams.num_beams
+        
         self.num_return_sequences = self.hparams.num_return_sequences
-        self.top_k = self.hparams.top_k
+        
         self.do_sample = self.hparams.do_sample
+        self.num_beams = self.hparams.num_beams
+        self.top_k = self.hparams.top_k
+
         self.min_length = self.hparams.min_length
         self.max_length = self.hparams.max_length
 
@@ -429,6 +433,7 @@ class Model_Eval(LightningModule):
         #print(f'ppl: {ppl}, output: {out_ids}')
 
         result = {
+            # 'input_ids': input_ids,
             'lm_loss':lm_loss.detach(),
             'ppl':ppl.detach(),
             'model_result': out_ids,
@@ -476,9 +481,8 @@ class Model_Eval(LightningModule):
         print(result_dict.items())
         result_dict['text_result'] = text_result
         output_dir = ('/').join(self.hparams.checkpoint.split('/')[:-3])
-        with open(output_dir + '/result.json', 'w') as outputfile:
+        with open(output_dir + 'result.json', 'w') as outputfile:
             json.dump(result_dict, outputfile, indent='\t')
-
 
         result = {
             'ppl': avg_ppl,
@@ -487,5 +491,3 @@ class Model_Eval(LightningModule):
         }
 
         return result
-
-
