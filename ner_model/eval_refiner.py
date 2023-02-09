@@ -11,11 +11,10 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, add_special_tokens_
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test
 from datasets import load_metric
 import re
 from tqdm import tqdm
-
 
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
 
@@ -284,6 +283,11 @@ class Model(LightningModule):
         dae_model = dae_model_class.from_pretrained(self.hparams.dae_model)
         dae_model.to(self.hparams.device)
 
+        print("Load NER tagger")
+        from flair.data import Sentence
+        from flair.models import SequenceTagger
+        tagger = SequenceTagger.load("flair/ner-english-large")
+
         text_result = result['text_result']
         ner_acc = 0
         ner_rec = 0
@@ -299,6 +303,8 @@ class Model(LightningModule):
         dae = 0
         dist1 = 0
         dist2 = 0
+        tc = 0
+        ec = 0
         rouge_metric = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
         bleu_metric = load_metric("sacrebleu")
         chrf_metric = CHRFScore()
@@ -323,8 +329,10 @@ class Model(LightningModule):
             pred_dict['input'] = input
             pred_dict['gold'] = gold_reply
             pred_dict['pred'] = pred_reply
+            pred_dict['knoweldge'] = knowledge
 
             result_list.append(pred_dict)
+
 
             # ROUGE
             if self.hparams.num_return_sequences > 1:
@@ -410,6 +418,89 @@ class Model(LightningModule):
                 dist1 += distinct_n_sentence_level(pred_reply[0], 1)
                 dist2 += distinct_n_sentence_level(pred_reply[0], 2)
 
+
+            # print("TC")
+            pred_format = {'LOC': {"keyword": []},
+                           'MISC': {"keyword": []},
+                           'PER': {"keyword": []},
+                           'ORG': {"keyword": []},
+                           }
+            gold_format = {'LOC': {"keyword": []},
+                           'MISC': {"keyword": []},
+                           'PER': {"keyword": []},
+                           'ORG': {"keyword": []},
+                           }
+            knowledge_format = {'LOC': {"keyword": []},
+                           'MISC': {"keyword": []},
+                           'PER': {"keyword": []},
+                           'ORG': {"keyword": []},
+                           }
+            tmp_ec = 0
+            tmp_tc = 0
+            if pred_reply[0] != "":
+
+                #pred_reply, gold_reply
+                sentence = Sentence(pred_reply[0])
+                tagger.predict(sentence)
+                for entity in sentence.get_spans('ner'):
+                    if len(pred_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+                            pred_format[entity.get_label("ner").value]["keyword"]:
+                        # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                        pred_format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                sentence = Sentence(gold_reply)
+                tagger.predict(sentence)
+                for entity in sentence.get_spans('ner'):
+                    if len(gold_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+                            gold_format[entity.get_label("ner").value]["keyword"]:
+                        # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                        gold_format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                sentence = Sentence(knowledge)
+                tagger.predict(sentence)
+                for entity in sentence.get_spans('ner'):
+                    if len(knowledge_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+                            knowledge_format[entity.get_label("ner").value]["keyword"]:
+                        # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                        knowledge_format[entity.get_label("ner").value]["keyword"].append(entity.text)
+
+
+                for key in gold_format.keys():
+                    gold_w_num = len(gold_format[key]["keyword"])
+                    pred_w_num = len(pred_format[key]["keyword"])
+                    if gold_w_num == 0:
+                        continue
+                    tc_ratio = pred_w_num / gold_w_num
+                    tmp_tc += tc_ratio
+                tmp_tc = tmp_tc /4
+                # print("tmp_tc:  ",tmp_tc)
+
+
+
+                # print("EC")
+                pred_k_list = []
+                gold_k_list = []
+                knowledge_k_list = []
+                for key in gold_format.keys():
+                    pred_k_list.extend(pred_format[key]["keyword"])
+                    gold_k_list.extend(gold_format[key]["keyword"])
+                    knowledge_k_list.extend(knowledge_format[key]["keyword"])
+
+                knowledge_gold = list(set(knowledge_k_list) & set(gold_k_list))
+                # print(knowledge_gold)
+                knowledge_gold_pred = list(set(knowledge_gold) & set(pred_k_list))
+                # print(knowledge_gold_pred)
+                if len(knowledge_gold) == 0:
+                    tmp_ec = 0
+                else:
+                    tmp_ec = len(knowledge_gold_pred) / len(knowledge_gold)
+
+
+
+            tc += tmp_tc
+            ec+=tmp_ec
+
+
+
+
         chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
         rouge1_result = r1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         rouge2_result = r2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -422,6 +513,8 @@ class Model(LightningModule):
         ner_rec_result = ner_rec / (test_data_index + 1)
         ner_prec_result = ner_prec / (test_data_index + 1)
         ner_f1_result = ner_f1 / (test_data_index + 1)
+        tc_result = tc / (test_data_index + 1)
+        ec_result = ec / (test_data_index + 1)
         factcc_result = factcc_output / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dae_result = dae / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dist1_result = dist1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -438,6 +531,8 @@ class Model(LightningModule):
         result_dict['ner_rec'] = ner_rec_result
         result_dict['ner_prec'] = ner_prec_result
         result_dict['ner_f1'] = ner_f1_result
+        result_dict['tc'] = tc_result
+        result_dict['ec'] = ec_result
         result_dict['factcc_result'] = factcc_result
         result_dict['dae_result'] = dae_result
         result_dict['dist1_result'] = dist1_result
