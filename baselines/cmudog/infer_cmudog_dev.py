@@ -12,6 +12,8 @@ from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
+from datasets import load_metric
+from nltk.tokenize import wordpunct_tokenize
 from utils import get_data_loaders, add_special_tokens_, special_tokens
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score, confusion_matrix
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -19,6 +21,18 @@ os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
 
 
 logger = logging.getLogger(__file__)
+
+
+def word_level_f1(pred_toks, true_toks):
+    eps=1e-10
+    # print("pred_toks:", pred_toks)
+    prec_list = [1 if word in true_toks else 0 for word in pred_toks]
+    prec = sum(prec_list)/len(prec_list)
+    rec_list = [1 if word in pred_toks else 0 for word in true_toks]
+    rec = sum(rec_list)/len(rec_list)
+    f1_score = 2*(prec*rec)/(prec+rec+eps)
+    return f1_score
+
 
 class Model(LightningModule):
     def __init__(self, **kwargs):
@@ -28,6 +42,7 @@ class Model(LightningModule):
         self.num_beams = self.hparams.num_beams
         self.top_k = self.hparams.top_k
         self.no_repeat_ngram_size = self.hparams.no_repeat_ngram_size
+
         if self.hparams.model_name == 'BART':
             from transformers import BartTokenizer, BartForConditionalGeneration
             self.tokenizer = BartTokenizer.from_pretrained(self.hparams.model_path)
@@ -68,7 +83,7 @@ class Model(LightningModule):
         train_dataset, valid_dataset = get_data_loaders(self.hparams, self.tokenizer)
         self.train_dataset = train_dataset
         self.valid_dataset = valid_dataset
-        print("Train dataset (Batch, Seq length): {}".format(train_dataset.tensors[0].shape))
+        print("Valid dataset (Batch, Seq length): {}".format(valid_dataset.tensors[0].shape))
 
 
     def test_dataloader(self):
@@ -79,47 +94,98 @@ class Model(LightningModule):
 
 
     def step(self, batch, batch_idx):
-        with torch.no_grad():
-            output = self.model.generate(**batch)
+        output = self.model(**batch)
+
         result = {
-            'output':output
+            'loss':output['loss'] if 'loss' in output else None,
+            'logits':output['logits'] if 'logits' in output else None
         }
         return result
 
 
 
     def test_step(self, batch, batch_idx):
-        input_ids, decoder_input_ids, lm_labels, persona = batch
-        inputs = {'input_ids': input_ids, 'do_sample': self.do_sample, 'num_beams': self.num_beams, 'top_k': self.top_k, 'no_repeat_ngram_size': self.no_repeat_ngram_size}
+        input_ids, decoder_input_ids, lm_labels, knowledge = batch
+        # inputs = {'input_ids': input_ids, 'do_sample': self.do_sample, 'num_beams': self.num_beams, 'top_k': self.top_k, 'no_repeat_ngram_size': self.no_repeat_ngram_size}
+        inputs = {'input_ids': input_ids, 'decoder_input_ids': decoder_input_ids, 'labels': lm_labels}
+
         result = self.step(inputs, batch_idx)
-        output = self.tokenizer.decode(list(result['output'][0]), skip_special_tokens=True)
+        lm_logits = result['logits']
+
+        lm_criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)
+        lm_loss = lm_criterion(lm_logits.view(-1, self.model.config.vocab_size), lm_labels.view(-1))
+        # ppl = torch.exp(lm_loss)
+        ppl = torch.exp(result['loss'])
+
+        out_ids = self.model.generate(input_ids=input_ids, do_sample=self.do_sample,
+                                      num_beams=self.num_beams, num_return_sequences=1, top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                      min_length=10)
+        output = self.tokenizer.batch_decode(out_ids.tolist(), skip_special_tokens=True)
 
         result_dict = {}
-        result_dict['output'] = output
+        result_dict['lm_loss'] = lm_loss.detach()
+        result_dict['ppl'] = ppl.detach()
         result_dict['input'] = self.tokenizer.decode(list(input_ids[0]), skip_special_tokens=True)
-        result_dict['input_ids'] = input_ids.cpu().tolist()
+        # result_dict['input_ids'] = input_ids.cpu().tolist()
+        result_dict['output'] = output
         result_dict['labels'] = self.tokenizer.decode(list(decoder_input_ids[0]), skip_special_tokens=True)
-        result_dict['persona'] =self.tokenizer.decode(list(persona[0]), skip_special_tokens=True)
+        result_dict['knowledge'] = knowledge
         return result_dict
 
 
-
-    def epoch_end(self, outputs):
-        # result_dict = {}
-        # for i in outputs:
-        #     output = i['output']
-        #     input_ids = i['input_ids']
-        #     labels = i['labels']
-        #     input = i['input']
-        result_dict = {}
-        result_dict['data'] = outputs
-        # breakpoint()
-        with open(self.hparams.output_dir + self.hparams.flag + '.json', 'w') as outputfile:
-            json.dump(result_dict, outputfile, indent='\t')
-        return result_dict
+    def epoch_end(self, outputs, state='test'):
+        return outputs
+        
 
     def test_epoch_end(self, outputs):
-        return self.epoch_end(outputs)
+        result = self.epoch_end(outputs, state='test')
+
+        text_result = []
+        f1 = 0
+        bleu = 0
+        ppl = 0
+        bleu_metric = load_metric("sacrebleu")
+
+        for index, i in enumerate(result):
+            text_dict = dict()
+            ppl += i['ppl'].item()
+            pred_sent = i['output']
+            true_sent = i['labels']
+            pred_toks_list = [wordpunct_tokenize(sent.strip()) for sent in pred_sent]
+            true_toks_list = [wordpunct_tokenize(sent.strip()) for sent in true_sent]
+            f1 += sum([word_level_f1(pred_toks, true_toks) for pred_toks, true_toks in zip(pred_toks_list, true_toks_list)]) / len(pred_sent)
+            bleu += sum([bleu_metric.compute(predictions=[pred], references=[[true]])['score'] for pred, true in zip(pred_sent, true_sent)]) / len(pred_sent)
+            text_dict['knowledge'] = i['knowledge']
+            text_dict['input'] = i['input']
+            text_dict['pred'] = pred_sent
+            text_dict['true'] = true_sent
+            text_result.append(text_dict)
+        
+        avg_ppl = ppl / (index+1)
+        avg_f1 = f1 / (index+1)
+        avg_bleu = bleu / (index+1)
+
+        self.log('test_ppl', avg_ppl)
+        self.log('test_f1', avg_f1)
+        self.log('test_bleu', avg_bleu)
+
+        result_dict = dict()
+        result_dict['ppl'] = avg_ppl
+        result_dict['f1'] = avg_f1
+        result_dict['bleu'] = avg_bleu
+        print(result_dict.items())
+        result_dict['text_result'] = text_result
+
+        with open(self.hparams.output_dir + self.hparams.flag + '.json', 'w') as outputfile:
+            json.dump(result_dict, outputfile, indent='\t')
+
+        result = {
+            'ppl': avg_ppl,
+            'f1': avg_f1,
+            'bleu': avg_bleu
+        }
+
+        return result
 
 
 def main():
@@ -133,7 +199,7 @@ def main():
     parser.add_argument("--dev_dataset_path", type=str, default="data/valid_topic_split.json", help="Path or url of the dataset.")
     parser.add_argument("--max_history", type=int, default=3, help="Number of previous exchanges to keep in history")
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for validation")
-    parser.add_argument("--num_beams", type=int, default=1, help="number of beams")
+    parser.add_argument("--num_beams", type=int, default=10, help="number of beams")
     parser.add_argument("--top_k", type=int, default=50, help="top_k ")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
     parser.add_argument("--do_sample", type=bool, default=True)

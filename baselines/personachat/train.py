@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("Yoonna")
+setproctitle("leejeongwoo")
 
 import os
 from argparse import ArgumentParser
@@ -22,8 +22,8 @@ def main():
     parser.add_argument("--model_path", type=str, default="facebook/bart-base", help="default value for PLMs {facebook/bart-base, t5-base}")
     parser.add_argument("--data_type", type=str, default='revised', help="{original, revised, convai, empchat}")
     parser.add_argument("--checkpoint", type=str, default="", help="load checkpoint and resume train")
-    parser.add_argument("--train_dataset_path", type=str, default="/home/yoonna/persona_chat/data/personachat/train_both_original.txt")
-    parser.add_argument("--valid_dataset_path", type=str, default="/home/yoonna/persona_chat/data/personachat/valid_both_original.txt")
+    parser.add_argument("--train_dataset_path", type=str, default="/data/yoonna/Refiner/baselines/personachat/data/personachat/train_both_original.txt")
+    parser.add_argument("--valid_dataset_path", type=str, default="/data/yoonna/Refiner/baselines/personachat/data/personachat/valid_both_original.txt")
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--train_batch_size", type=int, default=16, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=4, help="Batch size for validation")
@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--lr_scheduler", type=str, default="lambdalr", help="{exp, lambdalr}")
     parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
-    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--flag", type=str, default="both_ori_both_ori", help="Assign the name of the folder")
