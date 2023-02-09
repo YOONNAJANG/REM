@@ -129,7 +129,7 @@ class Model(LightningModule):
         # result_dict['input_ids'] = input_ids.cpu().tolist()
         result_dict['output'] = output
         result_dict['labels'] = self.tokenizer.decode(list(decoder_input_ids[0]), skip_special_tokens=True)
-        result_dict['knowledge'] = knowledge
+        result_dict['knowledge'] = self.tokenizer.decode(list(knowledge[0]), skip_special_tokens=True)
         return result_dict
 
 
