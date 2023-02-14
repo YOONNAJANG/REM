@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_
 from datasets import load_metric
 import re
 from tqdm import tqdm
@@ -54,14 +54,18 @@ class Model(LightningModule):
         self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
         self.congenmodel = BartForConditionalGeneration.from_pretrained(self.hparams.pretrained_model, config=self.config)
         self.tokenizer = AutoTokenizer.from_pretrained(self.hparams.pretrained_model)
-        # self.model.to(self.hparams.device)
         self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel, self.tokenizer, special_tokens=special_tokens_focus)
-        # self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
+
 
 
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
         if self.hparams.ptuning==True:
+
+            self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel,
+                                                                                   self.tokenizer,
+                                                                                   special_tokens={'pseudo_token':self.pseudo_token})
+
             for name, param in self.model.named_parameters():
                 # print('not frozen params: ', name)
                 # if name.startswith('model.encoder.'):
@@ -265,15 +269,6 @@ class Model(LightningModule):
 
     def test_epoch_end(self, outputs):
         result = self.epoch_end(outputs, state='test')
-        print("Load FactCC model weights")
-        from transformers import BertTokenizer, BertConfig
-        from metrics.factcc import BertPointer
-        factcc_config = BertConfig.from_pretrained(self.hparams.factcc_model + '/config.json')
-        factcc_model = BertPointer.from_pretrained(self.hparams.factcc_model + '/pytorch_model.bin',
-                                                   config=factcc_config)
-        factcc_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-        factcc_model.to(self.hparams.device)
-        factcc_model.eval()
 
         print("Load DAE model weights")
         from transformers import ElectraConfig, ElectraTokenizer
@@ -299,7 +294,6 @@ class Model(LightningModule):
         rl = 0
         bleu = 0
         chrf = 0
-        factcc_output = 0
         dae = 0
         dist1 = 0
         dist2 = 0
@@ -365,29 +359,6 @@ class Model(LightningModule):
                 pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
                 chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
 
-            # print('factcc')
-            # FactCC
-            if self.hparams.num_return_sequences > 1:
-                knowledge_input = factcc_tokenizer.tokenize(knowledge)
-                for pred_reply_item in pred_reply:
-                    pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
-                    generated_input = factcc_tokenizer.tokenize(pred_reply_wo_specialchar)
-                    factcc_input = [factcc_tokenizer.cls_token] + knowledge_input + [
-                        factcc_tokenizer.sep_token] + generated_input + [factcc_tokenizer.sep_token]
-                    factcc_input = torch.tensor(factcc_tokenizer.convert_tokens_to_ids(factcc_input)).to(
-                        self.hparams.device).unsqueeze(0)
-                    with torch.no_grad():
-                        factcc_output += factcc_model(factcc_input).argmax().item()
-            else:
-                pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
-                knowledge_input = factcc_tokenizer.tokenize(knowledge)
-                generated_input = factcc_tokenizer.tokenize(pred_reply_wo_specialchar)
-                factcc_input = [factcc_tokenizer.cls_token] + knowledge_input + [
-                    factcc_tokenizer.sep_token] + generated_input + [factcc_tokenizer.sep_token]
-                factcc_input = torch.tensor(factcc_tokenizer.convert_tokens_to_ids(factcc_input)).to(
-                    self.hparams.device).unsqueeze(0)
-                with torch.no_grad():
-                    factcc_output += factcc_model(factcc_input).argmax().item()
 
             # print('dae')
             # dae_factuality
@@ -515,7 +486,6 @@ class Model(LightningModule):
         ner_f1_result = ner_f1 / (test_data_index + 1)
         tc_result = tc / (test_data_index + 1)
         ec_result = ec / (test_data_index + 1)
-        factcc_result = factcc_output / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dae_result = dae / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dist1_result = dist1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dist2_result = dist2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -533,7 +503,6 @@ class Model(LightningModule):
         result_dict['ner_f1'] = ner_f1_result
         result_dict['tc'] = tc_result
         result_dict['ec'] = ec_result
-        result_dict['factcc_result'] = factcc_result
         result_dict['dae_result'] = dae_result
         result_dict['dist1_result'] = dist1_result
         result_dict['dist2_result'] = dist2_result
@@ -591,15 +560,14 @@ def main():
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
-    parser.add_argument("--max_length", type=int, default=128, help="maximum length")
+    parser.add_argument("--max_length", type=int, default=1024, help="maximum length")
     parser.add_argument("--min_length", type=int, default=32, help="minimum length")
     parser.add_argument("--top_k", type=int, default=50, help="Filter top-k tokens before sampling {5, 10}, default=50")
     parser.add_argument("--top_p", type=float, default=1.0,
                         help="Nucleus filtering (top-p) before sampling, default=1.0")
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
-    parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
+    parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for 1 generated result")
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--factcc_model", type=str, default="/home/data/ssh5131/focus_modeling/factcc/factcc-checkpoint", help="pre-trained factcc model directory")
     parser.add_argument("--dae_model", type=str, default="/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
@@ -619,7 +587,7 @@ def main():
     print("Fix Seed:", args['random_seed'])
 
     from setproctitle import setproctitle
-    setproctitle("suhyun")
+    setproctitle("yoonna eval")
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)

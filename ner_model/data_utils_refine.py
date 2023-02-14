@@ -189,9 +189,8 @@ def dataloader_focus(args, tokenizer):
 
 def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache):
 
-    # test_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json"
-    # test_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/our_test_cache.tar.gz"
-
+    test_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json"
+    test_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/our_test_cache.tar.gz"
 
     regen_data = get_dataset_refine_focus_test(tokenizer, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
@@ -291,10 +290,9 @@ def dataloader_wow(args, tokenizer):
 
 def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache):
 
-
-
     regen_data = get_dataset_refine_wow_test(tokenizer, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
+
     template = tuple([int(item) for item in args.template.split(',')])
     print("Build inputs and labels")
     datasets = {"test": defaultdict(list)}
