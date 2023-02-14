@@ -442,8 +442,6 @@ class Model(LightningModule):
                     tc_ratio = pred_w_num / gold_w_num
                     tmp_tc += tc_ratio
                 tmp_tc = tmp_tc /4
-                # print("tmp_tc:  ",tmp_tc)
-
 
 
                 # print("EC")
@@ -464,12 +462,8 @@ class Model(LightningModule):
                 else:
                     tmp_ec = len(knowledge_gold_pred) / len(knowledge_gold)
 
-
-
             tc += tmp_tc
             ec+=tmp_ec
-
-
 
 
         chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -477,7 +471,6 @@ class Model(LightningModule):
         rouge2_result = r2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         rougel_result = rl / ((test_data_index + 1) * self.hparams.num_return_sequences)
         bleu_result = bleu / ((test_data_index + 1) * self.hparams.num_return_sequences)
-        print("ppl :", ppl)
         print("datalen: ", test_data_index + 1)
         ppl_result = ppl / (test_data_index + 1)
         ner_acc_result = ner_acc / (test_data_index + 1)
