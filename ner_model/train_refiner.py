@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyun")
 import sys
 
 import os
@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import random
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
-from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog
 
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
@@ -265,8 +265,8 @@ class Model(LightningModule):
             train_dataset, valid_dataset = dataloader_focus(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "wow":
             train_dataset, valid_dataset = dataloader_wow(self.hparams, self.tokenizer)
-        elif self.hparams.data_type == "persona":
-            train_dataset, valid_dataset = None, None
+        elif self.hparams.data_type == "cmudog":
+            train_dataset, valid_dataset = dataloader_cmudog(self.hparams, self.tokenizer)
         return train_dataset, valid_dataset
 
     def train_dataloader(self):
@@ -281,7 +281,7 @@ class Model(LightningModule):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, persona}")
+    parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
     parser.add_argument("--mode", type=str, default="ner", help="{ner, gen}")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
