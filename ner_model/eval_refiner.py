@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyun")
 
 import os, json
 import logging
@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test
 from datasets import load_metric
 import re
 from tqdm import tqdm
@@ -229,11 +229,21 @@ class Model(LightningModule):
 
         knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
         knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
-        persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
-        persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
+        if self.hparams.data_type == "focus":
 
-        knowledge = input_ids[:, knoweldge_sp_idx + 1:persona_sp_idx]
-        knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=True)
+            persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
+            persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
+
+            knowledge = input_ids[:, knoweldge_sp_idx + 1:persona_sp_idx]
+            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=True)
+        else:
+            human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
+            human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
+
+            knowledge = input_ids[:, knoweldge_sp_idx + 1:human_sp_idx]
+
+            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=True)
+
 
         # print('input: ', input_text, '\n true: ', reply, '\n pred: ', out_ids)
         result = dict()
@@ -514,14 +524,19 @@ class Model(LightningModule):
         return self.epoch_end(outputs, state='test')
 
     def dataloader(self):
+        test_dataset = None
+
         if self.hparams.data_type == "focus":
             test_dataset = dataloader_focus_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
                                                  self.hparams.test_dataset_cache)
         elif self.hparams.data_type == "wow":
             test_dataset = dataloader_wow_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
                                                self.hparams.test_dataset_cache)
-        elif self.hparams.data_type == "persona":
-            test_dataset = None, None
+        elif self.hparams.data_type == "cmudog":
+
+            test_dataset = dataloader_cmudog_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
+                                               self.hparams.test_dataset_cache)
+
         return test_dataset
 
     def test_dataloader(self):
@@ -532,7 +547,7 @@ class Model(LightningModule):
 def main():
 
     parser = ArgumentParser()
-    parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, persona}")
+    parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
     parser.add_argument("--test_dataset_path", type=str, default="/home/mnt/ssh5131/FoCus_data/our_data/test_ours.json",
                         help="Path or url of the dataset. If empty download from S3.")
     parser.add_argument("--test_dataset_cache", type=str,
@@ -579,8 +594,8 @@ def main():
     print("Using PyTorch Ver", torch.__version__)
     print("Fix Seed:", args['random_seed'])
 
-    from setproctitle import setproctitle
-    setproctitle("yoonna eval")
+    # from setproctitle import setproctitle
+    # setproctitle("yoonna eval")
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)

@@ -426,7 +426,53 @@ def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache):
     test_dataset = TensorDataset(*tensor_datasets["test"])
     return test_dataset
 
+def dataloader_cmudog_test(args, tokenizer, test_dataset_path, test_dataset_cache):
 
+
+    regen_data = get_dataset_refine_cmudog_test(tokenizer, test_dataset_path=test_dataset_path,
+                                    test_dataset_cache=test_dataset_cache)
+    template = tuple([int(item) for item in args.template.split(',')])
+    print("Build inputs and labels")
+    datasets = {"test": defaultdict(list)}
+
+    for (key, value) in regen_data.items():
+        if key == 'train' and args.fewshot == True:
+            random.shuffle(value)
+            value = value[:args.fewnum]
+            print(f"Load only {len(value)} data for few-shot experiment.")
+
+        for data in tqdm(value):  # ['dialogID', 'landmark_link', 'replace_history', 'label', 'golden_knowledge', 'human_question', 'machine_ori_answer', 'split_machine_ori_answer', 'split_machine_rep_answer', 'rep_index']
+            # dialogID = data['dialogID']
+            # persona = data['persona']
+            utterance = data['utterance']
+            for i, utt in enumerate(utterance):
+                history = utt['dialog'][-(2 * args.max_history):]
+                # persona_cans = utt['persona_candidates']
+                # persona_ner_label = utt['persona_ner_label']
+                golden_knowledge = utt['golden_knowledge']
+                knowledge_ner_label = utt['knowledge_ner_label']
+                # instance = build_input_wow(tokenizer, history, persona_cans, golden_knowledge,
+                #                              knowledge_ner_label)
+                instance = build_input_cmudog(args, tokenizer, history,
+                                             golden_knowledge,
+                                             knowledge_ner_label, template)
+            for input_name, input_array in instance.items():
+                datasets[key][input_name].append(input_array)
+
+    print("Pad inputs and convert to Tensor")
+    tensor_datasets = {"test": []}
+    # print(datasets)
+    for dataset_name, dataset in datasets.items():
+        dataset = pad_dataset_focus(dataset, padding=tokenizer.pad_token_id)
+        # print(dataset)
+        for input_name in MODEL_INPUTS:
+            tensor = torch.tensor(dataset[input_name])
+            print(input_name, tensor.size())
+            tensor_datasets[dataset_name].append(tensor)
+
+    print("Build test dataloaders")
+    test_dataset = TensorDataset(*tensor_datasets["test"])
+    return test_dataset
 
 def pad_dataset_focus(dataset, padding):
     max_l = max(len(x) for x in dataset["input_ids"])
@@ -458,12 +504,14 @@ def get_dataset_refine_focus_test(tokenizer, test_dataset_path, test_dataset_cac
     if test_dataset_cache and os.path.isfile(test_dataset_cache):
         print("Load tokenized dataset from cache at %s", test_dataset_cache)
         test_dataset = torch.load(test_dataset_cache)
+
         all_dataset = dict()
         all_dataset["test"] = test_dataset["test"]
 
     else:
         print("Process dataset from %s", test_dataset_path)
         file_test = cached_path(test_dataset_path)
+
 
         file_dict = {"test": file_test}
         all_dataset = dict()
@@ -1032,6 +1080,7 @@ def get_dataset_refine_cmudog(tokenizer, train_dataset_path, train_dataset_cache
                 dataset = dataset["data"]
                 dataset_enc = dict()
                 dataset_enc[name] = list()
+
                 for dialogue in dataset:
                     ID = dialogue["dialogID"]
                     # persona = dialogue["persona"]
@@ -1124,5 +1173,127 @@ def get_dataset_refine_cmudog(tokenizer, train_dataset_path, train_dataset_cache
                 torch.save(dataset, train_dataset_cache)
             else:
                 torch.save(dataset, dev_dataset_cache)
+
+    return all_dataset
+
+def get_dataset_refine_cmudog_test(tokenizer, test_dataset_path, test_dataset_cache):
+    ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
+
+    token_char = tokenizer.convert_ids_to_tokens(5)[0]
+    # print(token_char)
+    def tokenize(obj):
+        if isinstance(obj, str):
+            return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+        if isinstance(obj, dict):
+            return dict((n, tokenize(o)) for n, o in obj.items())
+        return list(tokenize(o) for o in obj)
+
+    test_dataset_cache = test_dataset_cache + '_test_' + type(tokenizer).__name__
+
+    if test_dataset_cache and os.path.isfile(test_dataset_cache):
+        print("Load tokenized dataset from cache at %s", test_dataset_cache)
+        test_dataset = torch.load(test_dataset_cache)
+
+        all_dataset = dict()
+        all_dataset["test"] = test_dataset["test"]
+    else:
+        print("Process dataset from %s", test_dataset_path)
+        file_test = cached_path(test_dataset_path)
+
+        file_dict = {"test": file_test}
+        all_dataset = dict()
+
+        for name, file in file_dict.items():
+            with open(file, "r", encoding="utf-8") as f:
+                dataset = json.loads(f.read())
+                dataset = dataset["data"]
+                dataset_enc = dict()
+                dataset_enc[name] = list()
+                for dialogue in dataset:
+                    ID = dialogue["dialogID"]
+                    # persona = dialogue["persona"]
+                    # knowledge = dialogue["knowledge"]
+                    utterance = dialogue["utterance"]
+                    new_dialogue = dict()
+                    new_dialogue["utterance"] = list()
+                    for i, utt in enumerate(utterance):
+                        # print(ID, utt.keys())
+
+                        key = "dialogue" + str(i+1)
+                        if key not in utt.keys():
+                            continue
+                        dial = utt[key]
+                        dial_new = dict()
+                        knowledge_sent = utt["selected_knowledge"]
+                        # persona_can_enc = [tokenizer(sentence, add_special_tokens=False) for sentence in persona]
+
+                        ############################# knowledge NER ############################# knowledge NER
+                        knowledge_can_enc = tokenizer(knowledge_sent, add_special_tokens=False)
+                        knowledge_ner_labels = ["O"] * len(knowledge_can_enc['input_ids'])
+
+                        for ner_label in utt["NER_tagging"].keys():
+                            tmp_knowledge_index = utt["NER_tagging"][ner_label]["knowledge_index"]
+                            # print("NER_LABEL: ", ner_label)
+                            for k in range(len(tmp_knowledge_index)):
+                                start, end = tmp_knowledge_index[k]
+                                keyword = knowledge_sent[start:end]
+                                start_token_id = knowledge_can_enc.char_to_token(start)
+                                end_token_id = knowledge_can_enc.char_to_token(end - 1)
+                                if start_token_id == None or end_token_id == None:
+                                    continue
+                                knowledge_ner_labels[start_token_id] = "B"
+                                knowledge_ner_labels[start_token_id + 1:end_token_id + 1] = ["I"] * (
+                                        end_token_id - start_token_id)
+
+                        # persona_can_enc_new = []
+                        # for can in persona_can_enc:
+                        #     persona_can_enc_new.append(
+                        #         [tokenizer.convert_tokens_to_ids(tokenizer.persona_token)] + can['input_ids'])
+
+
+                        # persona_can_enc = list(chain(*persona_can_enc_new))
+                        knowledge_can_enc = [tokenizer.bos_token_id,
+                                             tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)] + \
+                                            knowledge_can_enc['input_ids']
+                        knowledge_ner_labels = [tokenizer.bos_token, tokenizer.knowledge_token] + knowledge_ner_labels
+
+                        knowledge_ner_labels_enc = [ner_label_map[label] for label in knowledge_ner_labels]
+                        for i, l in enumerate(knowledge_ner_labels_enc):
+                            if l in [3, 4, 5]:
+                                knowledge_ner_labels_enc[i] = -1
+                        if type(utt["output"]) == list:
+                            pred = utt["output"][0]
+                        else:
+                            pred = utt["output"]
+                        # print(pred)
+                        # breakpoint()
+                        dial[-2] = pred
+
+                        dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in
+                                    dial]
+
+                        assert len(knowledge_can_enc) == len(knowledge_ner_labels_enc)
+
+
+                        dial_new["dialog"] = dial_enc
+                        # dial_new["persona_grounding"] = persona_ground_enc
+                        # dial_new["persona_candidates"] = persona_can_enc
+                        # dial_new["persona_ner_label"] = persona_ner_labels_enc
+                        dial_new["golden_knowledge"] = knowledge_can_enc
+                        dial_new["knowledge_ner_label"] = knowledge_ner_labels_enc
+
+                        new_dialogue["utterance"].append(dial_new)
+                    # persona_enc = persona_can_enc
+                    # knowledge_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in knowledge]
+                    # new_dialogue["persona"] = persona_enc
+                    # new_dialogue["knowledge"] = knowledge_enc
+                    new_dialogue["dialogID"] = ID
+                    # new_dialogue["landmark_link"] = dialogue["landmark_link"]  ##############################
+                    dataset_enc[name].append(new_dialogue)
+
+            logger.info("Tokenize and encode the dataset")
+            dataset = dataset_enc
+            all_dataset[name] = dataset_enc[name]
+            torch.save(dataset, test_dataset_cache)
 
     return all_dataset
