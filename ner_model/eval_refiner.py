@@ -48,7 +48,7 @@ class Model(LightningModule):
 
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
         from transformers import BartForConditionalGeneration
-        from refiner_modules import BartEncDec_NER_txt as bartmodel
+        from refiner_modules import BartEncDec_NER_explicit as bartmodel
 
         self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
         self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)

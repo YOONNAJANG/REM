@@ -38,8 +38,10 @@ class Model(LightningModule):
         from transformers import AutoTokenizer, BartConfig
         if self.hparams.mode == "ner":
             from refiner_modules import BartEncDec as bartmodel
-        elif self.hparams.mode == "gen":
-            from refiner_modules import BartEncDec_NER_txt as bartmodel
+        elif self.hparams.mode == "gen_exp":
+            from refiner_modules import BartEncDec_NER_explicit as bartmodel
+        elif self.hparams.mode == "gen_imp":
+            from refiner_modules import BartEncDec_NER_implicit as bartmodel
         else:
             raise NotImplementedError
 
