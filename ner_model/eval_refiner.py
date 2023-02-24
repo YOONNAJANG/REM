@@ -53,6 +53,10 @@ class Model(LightningModule):
             from refiner_modules import BartEncDec_NER_explicit as bartmodel
         elif self.hparams.mode == "gen_imp":
             from refiner_modules import BartEncDec_NER_implicit as bartmodel
+        elif self.hparams.mode == "original":
+            from transformers import BartForConditionalGeneration as bartmodel
+        elif self.hparams.model == "ner":
+            from refiner_modules import BartEncDec as bartmodel
         else:
             raise NotImplementedError
 
@@ -209,6 +213,22 @@ class Model(LightningModule):
                                               do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
                                               top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
                                               min_length=self.min_length, max_length=self.max_length)
+
+        elif self.hparams.mode == "original":
+            with torch.no_grad():
+                out_ids = self.congenmodel.generate(input_ids=input_ids,
+                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                              min_length=self.min_length, max_length=self.max_length)
+
+        elif self.hparams.mode == "ner":
+            with torch.no_grad():
+                out_ids = self.congenmodel.generate(input_ids=input_ids,
+                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                              min_length=self.min_length, max_length=self.max_length)
+        else:
+            raise NotImplementedError
 
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
@@ -560,7 +580,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
-    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen_exp, gen_imp}")
+    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen_exp, gen_imp, original}")
     parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for testing")
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
