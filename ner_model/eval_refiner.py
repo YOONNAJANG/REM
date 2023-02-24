@@ -162,43 +162,56 @@ class Model(LightningModule):
         }
         results = self.step(inputs, batch_idx)
         # print(result.items()) # ner_logits, ner_loss, lm_logits, lm_loss, ner_results
-        lm_logits, ner_logits = results['lm_logits'], results['ner_logits']
 
-        result = {}
-        for k, v in results.items():
-            if k != "ner_results":
-                result[k] = v.detach().cpu()
-            else:
-                result[k] = v
+        if self.hparams.mode == "original":
+            lm_logits = results['lm_logits']
+            ppl = torch.exp(results["loss"])
 
-        ppl = torch.exp(results["lm_loss"])
+            with torch.no_grad():
+                out_ids = self.congenmodel.generate(input_ids=input_ids,
+                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                              min_length=self.min_length, max_length=self.max_length)
+            ner_result = None
 
+        else:
 
-        predictions = torch.argmax(ner_logits, dim=-1)
-        pred_all = (predictions == 1) + (predictions == 2)
-        chosen_tok_list = []
-        for batch_index, batch_item in enumerate(pred_all):
-            for item_idx, item in enumerate(batch_item):
-                if item == True:
-                    chosen_tok_list.append(input_ids[batch_index][item_idx])
-            chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list + [torch.tensor(2).to(input_ids.device)]
-            new_dec_input = torch.stack(chosen_tok_list, 0).unsqueeze(0)
+            lm_logits, ner_logits = results['lm_logits'], results['ner_logits']
+            ppl = torch.exp(results["lm_loss"])
 
-        true_predictions = [
-            [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
-            for prediction, label in zip(predictions, ner_labels)
-        ]
-        true_labels = [
-            [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
-            for prediction, label in zip(predictions, ner_labels)
-        ]
+            result = {}
+            for k, v in results.items():
+                if k != "ner_results":
+                    result[k] = v.detach().cpu()
+                else:
+                    result[k] = v
 
-        results = self.metric.compute(predictions=true_predictions, references=true_labels)
-        ner_results = {
-            "precision": results["overall_precision"],
-            "recall": results["overall_recall"],
-            "f1": results["overall_f1"],
-            "accuracy": results["overall_accuracy"]}
+            if self.hparams.mode == "gen_exp":
+                predictions = torch.argmax(ner_logits, dim=-1)
+                pred_all = (predictions == 1) + (predictions == 2)
+                chosen_tok_list = []
+                for batch_index, batch_item in enumerate(pred_all):
+                    for item_idx, item in enumerate(batch_item):
+                        if item == True:
+                            chosen_tok_list.append(input_ids[batch_index][item_idx])
+                    chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list + [torch.tensor(2).to(input_ids.device)]
+                    new_dec_input = torch.stack(chosen_tok_list, 0).unsqueeze(0)
+
+            true_predictions = [
+                [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
+                for prediction, label in zip(predictions, ner_labels)
+            ]
+            true_labels = [
+                [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
+                for prediction, label in zip(predictions, ner_labels)
+            ]
+
+            results = self.metric.compute(predictions=true_predictions, references=true_labels)
+            ner_results = {
+                "precision": results["overall_precision"],
+                "recall": results["overall_recall"],
+                "f1": results["overall_f1"],
+                "accuracy": results["overall_accuracy"]}
 
         if self.hparams.mode == "gen_exp":
             with torch.no_grad():
@@ -207,16 +220,19 @@ class Model(LightningModule):
                                               top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
                                               min_length=self.min_length, max_length=self.max_length)
 
+            if self.num_return_sequences > 1:
+                new_out_ids = []
+                for out_id in out_ids:
+                    output_index = (out_id == 2).nonzero(as_tuple=True)[0][1].item()
+                    new_out_ids.append(out_id[output_index:])
+                out_ids = torch.stack(new_out_ids, 0)
+            else:
+                output_index = (out_ids[0] == 2).nonzero(as_tuple=True)[0][1].item()
+                out_ids = out_ids[0][output_index:].unsqueeze(0)
+
         elif self.hparams.mode == "gen_imp":
             with torch.no_grad():
                 out_ids = self.model.generate(input_ids=input_ids,
-                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
-                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
-                                              min_length=self.min_length, max_length=self.max_length)
-
-        elif self.hparams.mode == "original":
-            with torch.no_grad():
-                out_ids = self.congenmodel.generate(input_ids=input_ids,
                                               do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
                                               top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
                                               min_length=self.min_length, max_length=self.max_length)
@@ -227,21 +243,12 @@ class Model(LightningModule):
                                               do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
                                               top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
                                               min_length=self.min_length, max_length=self.max_length)
+
         else:
             raise NotImplementedError
 
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
-        if self.num_return_sequences > 1:
-            new_out_ids = []
-            for out_id in out_ids:
-                output_index = (out_id == 2).nonzero(as_tuple=True)[0][1].item()
-                new_out_ids.append(out_id[output_index:])
-            out_ids = torch.stack(new_out_ids, 0)
-        else:
-            output_index = (out_ids[0] == 2).nonzero(as_tuple=True)[0][1].item()
-            out_ids = out_ids[0][output_index:].unsqueeze(0)
-
 
         out_ids = self.tokenizer.batch_decode(out_ids, skip_special_tokens=True)
 
@@ -285,8 +292,9 @@ class Model(LightningModule):
             text_dict['y_true_text'] = i['y_true_text']
             text_dict['y_pred_text'] = i['y_pred_text']
             text_dict['input_text'] = i['input_text']
-            text_dict['ner_results'] = i['ner_results']
             text_dict['knowledge'] = i['knowledge']
+            if i['ner_results'] is not None:
+                text_dict['ner_results'] = i['ner_results']
 
             # text_dict['model_pred_knowledge'] = i['model_pred_knowledge']
 
@@ -341,10 +349,11 @@ class Model(LightningModule):
             pred_reply = test_data['y_pred_text']
             input = test_data['input_text']
 
-            ner_acc += test_data['ner_results']['accuracy']
-            ner_rec += test_data['ner_results']['recall']
-            ner_prec += test_data['ner_results']['precision']
-            ner_f1 += test_data['ner_results']['f1']
+            if self.hparams.mode != "original":
+                ner_acc += test_data['ner_results']['accuracy']
+                ner_rec += test_data['ner_results']['recall']
+                ner_prec += test_data['ner_results']['precision']
+                ner_f1 += test_data['ner_results']['f1']
 
             knowledge = test_data['knowledge']
 
@@ -493,7 +502,7 @@ class Model(LightningModule):
                     tmp_ec = len(knowledge_gold_pred) / len(knowledge_gold)
 
             tc += tmp_tc
-            ec+=tmp_ec
+            ec += tmp_ec
 
 
         chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -501,17 +510,20 @@ class Model(LightningModule):
         rouge2_result = r2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         rougel_result = rl / ((test_data_index + 1) * self.hparams.num_return_sequences)
         bleu_result = bleu / ((test_data_index + 1) * self.hparams.num_return_sequences)
-        print("datalen: ", test_data_index + 1)
         ppl_result = ppl / (test_data_index + 1)
-        ner_acc_result = ner_acc / (test_data_index + 1)
-        ner_rec_result = ner_rec / (test_data_index + 1)
-        ner_prec_result = ner_prec / (test_data_index + 1)
-        ner_f1_result = ner_f1 / (test_data_index + 1)
-        tc_result = tc / (test_data_index + 1)
-        ec_result = ec / (test_data_index + 1)
         dae_result = dae / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dist1_result = dist1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         dist2_result = dist2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        tc_result = tc / (test_data_index + 1)
+        ec_result = ec / (test_data_index + 1)
+
+
+        if self.hparams.mode != "original":
+            ner_acc_result = ner_acc / (test_data_index + 1)
+            ner_rec_result = ner_rec / (test_data_index + 1)
+            ner_prec_result = ner_prec / (test_data_index + 1)
+            ner_f1_result = ner_f1 / (test_data_index + 1)
+
 
         result_dict = dict()
         result_dict['chrF++'] = chrf_result.item()
@@ -520,15 +532,16 @@ class Model(LightningModule):
         result_dict['rougeL'] = rougel_result
         result_dict['bleu'] = bleu_result
         result_dict['ppl'] = ppl_result.item()
-        result_dict['ner_acc'] = ner_acc_result
-        result_dict['ner_rec'] = ner_rec_result
-        result_dict['ner_prec'] = ner_prec_result
-        result_dict['ner_f1'] = ner_f1_result
         result_dict['tc'] = tc_result
         result_dict['ec'] = ec_result
         result_dict['dae_result'] = dae_result
         result_dict['dist1_result'] = dist1_result
         result_dict['dist2_result'] = dist2_result
+        if self.hparams.mode != "original":
+            result_dict['ner_acc'] = ner_acc_result
+            result_dict['ner_rec'] = ner_rec_result
+            result_dict['ner_prec'] = ner_prec_result
+            result_dict['ner_f1'] = ner_f1_result
 
         print(result_dict.items())
 
