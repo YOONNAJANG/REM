@@ -2,14 +2,9 @@ import logging
 import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss, KLDivLoss
-from transformers import BartForConditionalGeneration, BartPretrainedModel, BartEncoder, BartDecoder, BartConfig
-from transformers.file_utils import (
-    add_code_sample_docstrings,
-    add_end_docstrings,
-    add_start_docstrings,
-    add_start_docstrings_to_model_forward,
-    replace_return_docstrings,
-)
+from transformers import BartForConditionalGeneration
+from transformers.models.bart.modeling_bart import BartPretrainedModel, BartEncoder, BartDecoder, BartConfig
+
 from transformers.modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
@@ -239,6 +234,8 @@ class BartModel_implicit(BartPretrainedModel):
         self.encoder = BartEncoder(config, self.shared)
         self.decoder = BartDecoder(config, self.shared)
 
+        self.summary = Summary(emb_dim=config.d_model)
+
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -314,11 +311,39 @@ class BartModel_implicit(BartPretrainedModel):
                 attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
             )
 
+        ner_logits_cls = encoder_outputs.last_hidden_state  # batch, encseqlen, dim
+        ner_logits = self.summary(ner_logits_cls).squeeze(-1)
+
+        softmax = Softmax(dim=-1)
+        softmax_result, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
+
+        result_true = (top_ner_result == 1) + (top_ner_result == 2)
+
+
+
+        new_enc_outputs = []
+        for batch_idx, batch in enumerate(result_true):
+            chosen_vec_list = []
+            for item_idx, item in enumerate(batch):
+                if item == True:
+                    chosen_vec_list.append(ner_logits_cls[batch_idx][item_idx])
+            chosen_vec_tensor = torch.stack(chosen_vec_list, 0)
+            new_enc_output = torch.cat([ner_logits_cls[batch_idx], chosen_vec_tensor])
+            pad_len = self.config.max_position_embeddings - new_enc_output.size()[0]
+            new_enc_output = torch.cat([new_enc_output, ner_logits_cls[batch_idx][-1,:].repeat(pad_len, 1).to(input_ids.device)])
+            # print('pad len: ', pad_len)
+            # print('new enc output size: ', new_enc_output.size())
+            new_enc_outputs.append(new_enc_output)
+        new_enc_outputs = torch.stack(new_enc_outputs, 0)
+
+        # breakpoint()
+        # encoder_outputs[0]?
+
         # decoder outputs consists of (dec_features, past_key_value, dec_hidden, dec_attn)
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
-            encoder_hidden_states=encoder_outputs[0],
+            encoder_hidden_states=new_enc_outputs,
             encoder_attention_mask=attention_mask,
             head_mask=decoder_head_mask,
             cross_attn_head_mask=cross_attn_head_mask,

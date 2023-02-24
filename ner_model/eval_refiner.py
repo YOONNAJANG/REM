@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 
 import os, json
 import logging
@@ -11,7 +11,8 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_
+#dataloader_cmudog_test
 from datasets import load_metric
 import re
 from tqdm import tqdm
@@ -48,7 +49,12 @@ class Model(LightningModule):
 
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
         from transformers import BartForConditionalGeneration
-        from refiner_modules import BartEncDec_NER_explicit as bartmodel
+        if self.hparams.mode == "gen_exp":
+            from refiner_modules import BartEncDec_NER_explicit as bartmodel
+        elif self.hparams.mode == "gen_imp":
+            from refiner_modules import BartEncDec_NER_implicit as bartmodel
+        else:
+            raise NotImplementedError
 
         self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
         self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
@@ -133,17 +139,6 @@ class Model(LightningModule):
             output = self.model(**batch)
         return output
 
-    # def generation_step(self, batch, batch_idx):
-    #     # input_ids, decoder_input_ids, lm_labels, ner_labels = batch
-    #     if self.hparams.ptuning == True:
-    #         input_embeds = self.embed_inputs(batch['input_ids'])
-    #         if 'input_ids' in batch:
-    #             del batch['input_ids']
-    #             batch['inputs_embeds'] = input_embeds
-    #         output = self.model(**batch)
-    #     else:
-    #         output = self.model(**batch)
-    #     return output
 
     def test_step(self, batch, batch_idx):
         input_ids, decoder_input_ids, lm_labels, ner_labels = batch
@@ -174,6 +169,7 @@ class Model(LightningModule):
 
         ppl = torch.exp(results["lm_loss"])
 
+
         predictions = torch.argmax(ner_logits, dim=-1)
         pred_all = (predictions == 1) + (predictions == 2)
         chosen_tok_list = []
@@ -200,16 +196,19 @@ class Model(LightningModule):
             "f1": results["overall_f1"],
             "accuracy": results["overall_accuracy"]}
 
-        with torch.no_grad():
-            out_ids = self.congenmodel.generate(input_ids=input_ids, decoder_input_ids=new_dec_input,
-                                          do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
-                                          top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
-                                          min_length=self.min_length, max_length=self.max_length)
-        # if len((reply == -100).nonzero(as_tuple=True)[0]) == 0:
-        #     reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
-        # else:
-        #     reply_ind = (reply == -100).nonzero(as_tuple=True)[0][0]
-        #     reply = self.tokenizer.decode(reply[:reply_ind].tolist(), skip_special_tokens=True)
+        if self.hparams.mode == "gen_exp":
+            with torch.no_grad():
+                out_ids = self.congenmodel.generate(input_ids=input_ids, decoder_input_ids=new_dec_input,
+                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                              min_length=self.min_length, max_length=self.max_length)
+
+        elif self.hparams.mode == "gen_imp":
+            with torch.no_grad():
+                out_ids = self.model.generate(input_ids=input_ids,
+                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                              min_length=self.min_length, max_length=self.max_length)
 
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
@@ -256,7 +255,6 @@ class Model(LightningModule):
         result['knowledge'] = knowledge
 
         return result
-
 
     def epoch_end(self, outputs, state='test'):
 
@@ -560,6 +558,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
+    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen_exp, gen_imp}")
     parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for testing")
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
@@ -594,8 +593,7 @@ def main():
     print("Using PyTorch Ver", torch.__version__)
     print("Fix Seed:", args['random_seed'])
 
-    # from setproctitle import setproctitle
-    # setproctitle("yoonna eval")
+
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)

@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 import sys
 
 import os
@@ -12,6 +12,7 @@ from itertools import chain
 print(os.getcwd())
 import wandb
 import torch
+torch.set_num_threads(4)
 from torch.optim.lr_scheduler import LambdaLR, ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
@@ -23,7 +24,8 @@ from collections import Counter, defaultdict
 import numpy as np
 import random
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
-from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
+# dataloader_cmudog
 
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
@@ -284,7 +286,7 @@ class Model(LightningModule):
 def main():
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
-    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen}")
+    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen_exp, gen_imp}")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
