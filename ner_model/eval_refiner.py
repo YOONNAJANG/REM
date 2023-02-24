@@ -378,11 +378,13 @@ class Model(LightningModule):
                     if len(pred_reply_wo_specialchar) == 0:
                         dae += 0
                     else:
+
                         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
                                                         self.hparams)
             else:
                 pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
-                if len(pred_reply_wo_specialchar) == 0:
+                pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
+                if len(pred_reply_wo_specialchar) == 0 :
                     dae += 0
                 else:
                     dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,

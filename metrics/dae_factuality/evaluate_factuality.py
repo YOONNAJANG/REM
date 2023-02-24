@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import sys
 #print(os.getcwd())
-sys.path.append('/home/data/yoonna/Refiner/metrics/dae_factuality')
+sys.path.append('/home/data/ssh5131/code/Refiner/metrics/dae_factuality')
 import utils
 from sklearn.utils.extmath import softmax
 from preprocessing_utils import get_tokens, get_relevant_deps_and_context
@@ -68,7 +68,8 @@ def score_example_single_context(decode_text, input_text, model, tokenizer, args
         arcs = torch.tensor([f.arcs for f in features], dtype=torch.long).to(args.device)
         arc_labels = torch.tensor([f.arc_labels for f in features], dtype=torch.long).to(args.device)
         arc_label_lengths = torch.tensor([f.arc_label_lengths for f in features], dtype=torch.long).to(args.device)
-
+        if input_ids.size()[0] == 0:
+            return 0
         inputs = {'input_ids': input_ids, 'attention': attention, 'token_ids': token_ids, 'child': child, 'head': head,
                   'dep_labels': dep_labels, 'arcs': arc_labels, 'arc_label_lengths': arc_label_lengths,
                   'device': args.device}
