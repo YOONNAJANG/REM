@@ -40,7 +40,6 @@ def get_relevant_deps_and_context(line, args):
                                            'ssplit.isOneSentence': True})
 
     deps = []
-    print("+++  parse: ", parse)
     tokens = parse['sentences'][0]['tokens']
     pos = [tok['pos'] for tok in tokens]
     tokens = [tok['word'] for tok in tokens]

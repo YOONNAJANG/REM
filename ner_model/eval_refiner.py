@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyun")
 
 import os, json
 import logging
@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test
 #dataloader_cmudog_test
 from datasets import load_metric
 import re
@@ -55,7 +55,7 @@ class Model(LightningModule):
             from refiner_modules import BartEncDec_NER_implicit as bartmodel
         elif self.hparams.mode == "original":
             from transformers import BartForConditionalGeneration as bartmodel
-        elif self.hparams.model == "ner":
+        elif self.hparams.mode == "ner":
             from refiner_modules import BartEncDec as bartmodel
         else:
             raise NotImplementedError
@@ -185,9 +185,9 @@ class Model(LightningModule):
                     result[k] = v.detach().cpu()
                 else:
                     result[k] = v
-
+            predictions = torch.argmax(ner_logits, dim=-1)
             if self.hparams.mode == "gen_exp":
-                predictions = torch.argmax(ner_logits, dim=-1)
+
                 pred_all = (predictions == 1) + (predictions == 2)
                 chosen_tok_list = []
                 for batch_index, batch_item in enumerate(pred_all):
@@ -232,7 +232,7 @@ class Model(LightningModule):
 
         elif self.hparams.mode == "gen_imp":
             with torch.no_grad():
-                out_ids = self.model.generate(input_ids=input_ids,
+                out_ids = self.congenmodel.generate(input_ids=input_ids,
                                               do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
                                               top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
                                               min_length=self.min_length, max_length=self.max_length)
@@ -251,6 +251,8 @@ class Model(LightningModule):
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
 
         out_ids = self.tokenizer.batch_decode(out_ids, skip_special_tokens=True)
+        # print(out_ids)
+        # breakpoint()
 
 
         knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
@@ -593,7 +595,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
-    parser.add_argument("--mode", type=str, default="ner", help="{ner, gen_exp, gen_imp, original}")
+    parser.add_argument("--mode", type=str, default="gen_imp", help="{ner, gen_exp, gen_imp, original}")
     parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for testing")
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
