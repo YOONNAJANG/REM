@@ -2,7 +2,7 @@ import pandas as pd
 import json
 import os
 
-path = "/home/data/ssh5131/focus_modeling/eval_output/cmudog_refiner"
+path = "/home/data/ssh5131/focus_modeling/eval_output/focus_refiner"
 file_list = [file for file in os.listdir(path) if file.endswith('.json')]
 print(file_list)
 

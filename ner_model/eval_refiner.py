@@ -70,6 +70,7 @@ class Model(LightningModule):
 
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
+        print('mode: ', self.hparams.mode)
         if self.hparams.ptuning==True:
 
             self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel,
