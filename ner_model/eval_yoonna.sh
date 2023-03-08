@@ -5,14 +5,17 @@
 #CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type focus --checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch6-valid_lm_loss1.4768.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ --flag output_b1 > eval_logs/wo_prompt_100_b1.log &
 
 #woner
-#CUDA_VISIBLE_DEVICES=0 nohup python eval_refiner.py --data_type focus --checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100_wonerloss/ --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100_wonerloss/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_wonerloss_b10.log &
+#RUNNING
+#CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --mode gen_exp --checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100_wonerloss/epoch5-valid_lm_loss1.4742.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100_wonerloss/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_wonerloss_b10.log &
 
 #wo_prompt_100_imp
-#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type focus --checkpoint /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100/ --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_wonerloss_imp_b10.log &
-CUDA_VISIBLE_DEVICES=0 nohup python eval_refiner.py --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_ner1.0/epoch5-valid_lm_loss1.4884.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_ner1.0/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_imp_ner1.0_b10.log &
+#RUNNING
+#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100/epoch3-valid_lm_loss1.4935.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_imp_b10.log &
+#CUDA_VISIBLE_DEVICES=0 nohup python eval_refiner.py --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_ner1.0/epoch5-valid_lm_loss1.4884.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_ner1.0/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_imp_ner1.0_b10.log &
 
 #woner
-CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss/epoch6-valid_lm_loss1.4825.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_imp_wonerloss_b10.log &
+#RUNNING
+CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss/epoch5-valid_lm_loss1.4856.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_imp_wonerloss_b10.log &
 
 
 #w_prompt_rand_100

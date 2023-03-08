@@ -29,13 +29,14 @@
 
 
 #for test
-#CUDA_VISIBLE_DEVICES=4 nohup python train_refiner.py --ner_coef 0.0 --epochs 100 --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch15-valid_lm_loss1.4855.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss > logs/gen_imp_wo_prompt_100_wonerloss.log &
+
 #CUDA_VISIBLE_DEVICES=6 nohup python train_refiner.py --ner_coef 1.0 --epochs 100 --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch15-valid_lm_loss1.4855.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_ner1.0 > logs/gen_imp_wo_prompt_100_ner1.0.log &
 #CUDA_VISIBLE_DEVICES=4 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100 > logs/wo_prompt_100.log &
 
 #RUNNING
 #CUDA_VISIBLE_DEVICES=6 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch15-valid_lm_loss1.4855.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100 > logs/gen_imp_wo_prompt_100.log &
+CUDA_VISIBLE_DEVICES=4 nohup python train_refiner.py --ner_coef 0.0 --epochs 100 --data_type focus --mode gen_imp --checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch15-valid_lm_loss1.4855.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_imp/wo_prompt_100_wonerloss > logs/gen_imp_wo_prompt_100_wonerloss.log &
 
-CUDA_VISIBLE_DEVICES=7 nohup python train_refiner.py --ner_coef 0.0 --epochs 100 --data_type focus --mode gen_exp --checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch15-valid_lm_loss1.4855.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100_wonerloss > logs/gen_wo_prompt_100_wonerloss.log &
+#CUDA_VISIBLE_DEVICES=7 nohup python train_refiner.py --ner_coef 0.0 --epochs 100 --data_type focus --mode gen_exp --checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch15-valid_lm_loss1.4855.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100_wonerloss > logs/gen_wo_prompt_100_wonerloss.log &
 
 

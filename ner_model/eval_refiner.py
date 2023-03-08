@@ -18,6 +18,7 @@ import re
 from tqdm import tqdm
 
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+from transformers import (LogitsProcessorList, MinLengthLogitsProcessor, TopKLogitsWarper, TemperatureLogitsWarper, BeamSearchScorer)
 
 from datasets import load_metric
 from torchmetrics import CHRFScore
@@ -164,7 +165,7 @@ class Model(LightningModule):
         # print(result.items()) # ner_logits, ner_loss, lm_logits, lm_loss, ner_results
 
         if self.hparams.mode == "original":
-            lm_logits = results['lm_logits']
+            lm_logits = results['logits']
             ppl = torch.exp(results["loss"])
 
             with torch.no_grad():
@@ -176,7 +177,7 @@ class Model(LightningModule):
 
         else:
 
-            lm_logits, ner_logits = results['lm_logits'], results['ner_logits']
+            lm_logits, ner_logits = results['logits'], results['ner_logits']
             ppl = torch.exp(results["lm_loss"])
 
             result = {}
@@ -186,9 +187,10 @@ class Model(LightningModule):
                 else:
                     result[k] = v
 
+            predictions = torch.argmax(ner_logits, dim=-1)
+            pred_all = (predictions == 1) + (predictions == 2)
+
             if self.hparams.mode == "gen_exp":
-                predictions = torch.argmax(ner_logits, dim=-1)
-                pred_all = (predictions == 1) + (predictions == 2)
                 chosen_tok_list = []
                 for batch_index, batch_item in enumerate(pred_all):
                     for item_idx, item in enumerate(batch_item):
@@ -237,6 +239,7 @@ class Model(LightningModule):
                                               top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
                                               min_length=self.min_length, max_length=self.max_length)
 
+
         elif self.hparams.mode == "ner":
             with torch.no_grad():
                 out_ids = self.congenmodel.generate(input_ids=input_ids,
@@ -249,9 +252,9 @@ class Model(LightningModule):
 
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
-
+        out_ids = out_ids[:, :self.hparams.max_length]
         out_ids = self.tokenizer.batch_decode(out_ids, skip_special_tokens=True)
-
+        out_ids = [out_id[:self.hparams.max_length] for out_id in out_ids]
 
         knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
         knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
@@ -602,7 +605,7 @@ def main():
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
-    parser.add_argument("--max_length", type=int, default=1024, help="maximum length")
+    parser.add_argument("--max_length", type=int, default=512, help="maximum length")
     parser.add_argument("--min_length", type=int, default=32, help="minimum length")
     parser.add_argument("--top_k", type=int, default=50, help="Filter top-k tokens before sampling {5, 10}, default=50")
     parser.add_argument("--top_p", type=float, default=1.0,
