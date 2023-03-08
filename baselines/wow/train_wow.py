@@ -115,7 +115,7 @@ class Model(LightningModule):
 
 
     def training_step(self, batch, batch_idx):
-        input_ids, decoder_input_ids, lm_labels, persona = batch
+        input_ids, decoder_input_ids, lm_labels = batch
 
         # print("\ninput_ids.size():", input_ids.size())
         # print("\ninput_ids:", input_ids)
@@ -145,7 +145,7 @@ class Model(LightningModule):
 
     def validation_step(self, batch, batch_idx):
 
-        input_ids, decoder_input_ids, lm_labels, persona = batch
+        input_ids, decoder_input_ids, lm_labels = batch
         inputs = {'input_ids': input_ids, 'decoder_input_ids': decoder_input_ids, 'labels': lm_labels}
         result = self.step(inputs, batch_idx)
         loss = result['loss']
