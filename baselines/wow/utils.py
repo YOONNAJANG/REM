@@ -100,86 +100,87 @@ def get_dataset_only_train_dev(tokenizer, train_dataset_path, dev_dataset_path):
     #
 
     print(train_dataset_cache)
-    if train_dataset_cache and os.path.isfile(train_dataset_cache):
-        logger.info("Load tokenized dataset from cache at %s", train_dataset_cache)
-        train_dataset = torch.load(train_dataset_cache)
-        dev_dataset = torch.load(dev_dataset_cache)
-        all_dataset = dict()
-        all_dataset["train"] = train_dataset["train"]
-        all_dataset["valid"] = dev_dataset["valid"]
-    else:
-        logger.info("Process dataset from %s", train_dataset_path)
-        wow_file_train = cached_path(train_dataset_path)
-        wow_file_dev = cached_path(dev_dataset_path)
-        # file_dict = {"train": wow_file_train, "valid": wow_file_dev}
-        file_dict = {"valid": wow_file_dev, "train": wow_file_train}
-        all_dataset = dict()
-        for name, file in file_dict.items():
-            print(name, file)
-            with open(file, "r", encoding="utf-8") as f:
-                dataset = json.loads(f.read())
-                dataset_enc = dict()
-                dataset_enc[name] = list()
+    # if train_dataset_cache and os.path.isfile(train_dataset_cache):
+    #     logger.info("Load tokenized dataset from cache at %s", train_dataset_cache)
+    #     train_dataset = torch.load(train_dataset_cache)
+    #     dev_dataset = torch.load(dev_dataset_cache)
+    #     all_dataset = dict()
+    #     all_dataset["train"] = train_dataset["train"]
+    #     all_dataset["valid"] = dev_dataset["valid"]
+    # else:
+    logger.info("Process dataset from %s", train_dataset_path)
+    wow_file_train = cached_path(train_dataset_path)
+    wow_file_dev = cached_path(dev_dataset_path)
+    # file_dict = {"train": wow_file_train, "valid": wow_file_dev}
+    file_dict = {"valid": wow_file_dev, "train": wow_file_train}
+    all_dataset = dict()
+    for name, file in file_dict.items():
+        print(name, file)
+        with open(file, "r", encoding="utf-8") as f:
+            dataset = json.loads(f.read())
+            dataset_enc = dict()
+            dataset_enc[name] = list()
 
-                for data in dataset:
-                    persona = data["persona"] # sentence
-                    new_dialogue = {"dialog": []}
-                    for each_dialog in data["dialog"]:
-                        utt_enc = dict()
-                        speaker = each_dialog["speaker"]    # 0_Wizard, 1_Wizard, 0_Apprentice, 1_Apprentice
-                        text = each_dialog["text"] # utterance
+            for data in dataset:
+                persona = data["persona"] # sentence
+                new_dialogue = {"dialog": []}
+                for each_dialog in data["dialog"]:
+                    utt_enc = dict()
+                    speaker = each_dialog["speaker"]    # 0_Wizard, 1_Wizard, 0_Apprentice, 1_Apprentice
+                    text = each_dialog["text"] # utterance
 
-                        if "checked_sentence" in each_dialog.keys():
-                            if each_dialog["speaker"].split("_")[1] != "Wizard":
-                                print('each_dialog["speaker"].split("_")[1] == "Wizard"')
-                                exit()
+                    if "checked_sentence" in each_dialog.keys():
+                        if each_dialog["speaker"].split("_")[1] != "Wizard":
+                            print('each_dialog["speaker"].split("_")[1] == "Wizard"')
+                            exit()
 
-                            if len(each_dialog["checked_sentence"]) > 1:
-                                print(len(each_dialog["checked_sentence"]))
-                                exit()
+                        if len(each_dialog["checked_sentence"]) > 1:
+                            print(len(each_dialog["checked_sentence"]))
+                            exit()
 
-                            if ('no_passages_used' in each_dialog["checked_sentence"].keys()) or (len(each_dialog["checked_sentence"]) == 0):
-                                checked_sentence = 'no_passages_used'
-                                no_knowledge_count += 1
-                            elif ('no_passages_used' not in each_dialog["checked_sentence"].keys()) and (len(each_dialog["checked_sentence"]) == 1):
-                                checked_sentence = list(each_dialog["checked_sentence"].values())[0]
-                                knowledge_count += 1
-                            else:
-                                print('no_passages_used ?, len(each_dialog["checked_sentence"]) ?')
-                                exit()
-
-                        else:
-                            if each_dialog["speaker"].split("_")[1] != "Apprentice":
-                                print('each_dialog["speaker"].split("_")[1] != "Apprentice"')
-                                exit()
-
+                        if ('no_passages_used' in each_dialog["checked_sentence"].keys()) or (len(each_dialog["checked_sentence"]) == 0):
                             checked_sentence = 'no_passages_used'
-                            app_knowledge_count += 1
+                            no_knowledge_count += 1
+                        elif ('no_passages_used' not in each_dialog["checked_sentence"].keys()) and (len(each_dialog["checked_sentence"]) == 1):
+                            checked_sentence = list(each_dialog["checked_sentence"].values())[0]
+                            knowledge_count += 1
+                        else:
+                            print('no_passages_used ?, len(each_dialog["checked_sentence"]) ?')
+                            exit()
 
-                        utt_enc["speaker"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(speaker.strip()))
-                        utt_enc["text"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text.strip()))
-                        utt_enc["checked_sentence"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(checked_sentence.strip()))
+                    else:
+                        if each_dialog["speaker"].split("_")[1] != "Apprentice":
+                            print('each_dialog["speaker"].split("_")[1] != "Apprentice"')
+                            exit()
 
-                        new_dialogue["dialog"].append(utt_enc)
-                    new_dialogue["persona"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(persona.strip()))
-                    dataset_enc[name].append(new_dialogue)
+                        checked_sentence = 'no_passages_used'
+                        app_knowledge_count += 1
 
-            logger.info("Tokenize and encode the dataset")
-            dataset = dataset_enc
-            all_dataset[name] = dataset_enc[name]
-            #
-            # breakpoint()
+                    utt_enc["speaker"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(speaker.strip()))
+                    utt_enc["text"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(text.strip()))
+                    utt_enc["checked_sentence"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(checked_sentence.strip()))
 
-            print("no_knowledge_count:", no_knowledge_count)
-            print("knowledge_count:", knowledge_count)
-            print("app_knowledge_count:", app_knowledge_count)
+                    new_dialogue["dialog"].append(utt_enc)
+                new_dialogue["persona"] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(persona.strip()))
+                dataset_enc[name].append(new_dialogue)
 
-            if name == 'train':
-                print('saving train')
-                torch.save(dataset, train_dataset_cache)
-            else:
-                print('saving valid')
-                torch.save(dataset, dev_dataset_cache)
+        logger.info("Tokenize and encode the dataset")
+        dataset = dataset_enc
+        all_dataset[name] = dataset_enc[name]
+        # torch.save(dataset, test_dataset_cache)
+        #
+        # breakpoint()
+
+        print("no_knowledge_count:", no_knowledge_count)
+        print("knowledge_count:", knowledge_count)
+        print("app_knowledge_count:", app_knowledge_count)
+        #
+        # if name == 'train':
+        #     print('saving train')
+        #     torch.save(dataset, train_dataset_cache)
+        # else:
+        #     print('saving valid')
+        #     torch.save(dataset, dev_dataset_cache)
     return all_dataset
 
 
