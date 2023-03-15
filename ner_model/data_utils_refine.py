@@ -1057,7 +1057,7 @@ def get_dataset_refine_wow(tokenizer, train_dataset_path, train_dataset_cache, d
                             continue
                         dial = utt[key]
                         dial_new = dict()
-                        knowledge_sent = utt["selected_knowledge"][0]
+                        knowledge_sent = utt["selected_knowledge"]
 
 
                         # persona_can_enc = [tokenizer(sentence, add_special_tokens=False) for sentence in persona]
