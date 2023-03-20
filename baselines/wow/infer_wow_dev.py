@@ -16,7 +16,8 @@ from utils import get_data_loaders, add_special_tokens_, special_tokens
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score, confusion_matrix
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
-
+from setproctitle import setproctitle
+setproctitle("suhyun")
 
 logger = logging.getLogger(__file__)
 
@@ -89,7 +90,7 @@ class Model(LightningModule):
 
 
     def test_step(self, batch, batch_idx):
-        input_ids, decoder_input_ids, lm_labels, persona = batch
+        input_ids, decoder_input_ids, lm_labels = batch
         inputs = {'input_ids': input_ids, 'do_sample': self.do_sample, 'num_beams': self.num_beams, 'top_k': self.top_k, 'no_repeat_ngram_size': self.no_repeat_ngram_size}
         result = self.step(inputs, batch_idx)
         output = self.tokenizer.decode(list(result['output'][0]), skip_special_tokens=True)
@@ -99,7 +100,7 @@ class Model(LightningModule):
         result_dict['input'] = self.tokenizer.decode(list(input_ids[0]), skip_special_tokens=True)
         result_dict['input_ids'] = input_ids.cpu().tolist()
         result_dict['labels'] = self.tokenizer.decode(list(decoder_input_ids[0]), skip_special_tokens=True)
-        result_dict['persona'] =self.tokenizer.decode(list(persona[0]), skip_special_tokens=True)
+        # result_dict['persona'] =self.tokenizer.decode(list(persona[0]), skip_special_tokens=True)
         return result_dict
 
 
@@ -147,8 +148,7 @@ def main():
 
     print(":: Using PyTorch Ver", torch.__version__, " ::")
     print(":: Fix Seed", args['seed'], " ::")
-    from setproctitle import setproctitle
-    setproctitle("leejeongwoo")
+
 
     torch.manual_seed(args['seed'])
     seed_everything(args['seed'], workers=True)

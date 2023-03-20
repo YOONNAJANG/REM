@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test, dataloader_chatgpt_test
 #dataloader_cmudog_test
 from datasets import load_metric
 import re
@@ -572,6 +572,10 @@ class Model(LightningModule):
         elif self.hparams.data_type == "cmudog":
 
             test_dataset = dataloader_cmudog_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
+                                               self.hparams.test_dataset_cache)
+        elif self.hparams.data_type == "chatgpt":
+
+            test_dataset = dataloader_chatgpt_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
                                                self.hparams.test_dataset_cache)
 
         return test_dataset

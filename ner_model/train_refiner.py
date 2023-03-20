@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyun")
 import sys
 
 import os
@@ -353,7 +353,8 @@ def main():
 
     print(":: Start Training ::")
     wandb.init(project='Refiner_ner', reinit=True, config=args, settings=wandb.Settings(start_method='fork'))
-    wandb_logger = WandbLogger(project='Refiner_ner')
+    # wandb.init(project='Refiner_ner', reinit=True, config=args)
+    wandb_logger = WandbLogger(project='Refiner')
     wandb.watch(model, log_freq=20)
 
     trainer_args = {
@@ -366,8 +367,8 @@ def main():
         'deterministic': torch.cuda.is_available(),
         'gpus': args['gpu_num'],
         'strategy': DDPPlugin(find_unused_parameters=True),
-        'precision': args['precision'],
-        'logger': wandb_logger}
+        'precision': args['precision'],}
+        # 'logger': wandb_logger}
 
 
     trainer = Trainer(**trainer_args)
