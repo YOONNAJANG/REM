@@ -205,15 +205,7 @@ def build_input_for_bart(args, history_knowledge_data, tokenizer):
             dial_dict["lm_labels"] = reply + [eos]
             dial_dict["knowledge"] = history_knowledge["selected_knowledge"]
 
-        # else:                         #wizard first
-        #     dialogue_history = [[wizard_st]+utt[-1] if i%2==0 else [apprentice_st]+utt[-1] for i, utt in enumerate(dial_hist)]
-        #     input_ids = [[bos] + [knowledge_st]] + [knowledge] + [[persona_st]] + [persona] + dialogue_history + [[eos]]
-        #     dial_dict['input_ids'] = list(chain(*input_ids))
-        #     dial_dict['decoder_input_ids'] = [bos] + reply
-        #     dial_dict["lm_labels"] = reply + [eos]
-
         input_list.append(dial_dict)
-
     return input_list
 
 
