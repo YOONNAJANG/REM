@@ -517,8 +517,6 @@ def dataloader_chatgpt_test(args, tokenizer, test_dataset_path, test_dataset_cac
 
 
 def dataloader_cmudog_test(args, tokenizer, test_dataset_path, test_dataset_cache):
-
-
     regen_data = get_dataset_refine_cmudog_test(tokenizer, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
     template = tuple([int(item) for item in args.template.split(',')])

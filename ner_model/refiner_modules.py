@@ -69,7 +69,7 @@ class BartEncDec(BartForConditionalGeneration):
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
-            output_dict['lm_loss'] = masked_lm_loss
+            output_dict['loss'] = masked_lm_loss
 
         ner_loss = None
         if ner_labels is not None:
@@ -93,7 +93,7 @@ class BartEncDec(BartForConditionalGeneration):
           "accuracy": results["overall_accuracy"],
       }
 
-            output_dict['lm_logits'] = lm_logits
+            output_dict['logits'] = lm_logits
             output_dict['ner_loss'] = ner_loss
             output_dict['ner_results'] = ner_results
 
@@ -172,13 +172,13 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
             outputs = self.model(inputs_embeds=inputs_embeds, decoder_input_ids=new_dec_inputs)
 
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias  # batch, decseqlen, dim
-        output_dict['lm_logits'] = lm_logits
+        output_dict['logits'] = lm_logits
 
         masked_lm_loss = None
         if new_lm_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), new_lm_labels.view(-1))
-            output_dict['lm_loss'] = masked_lm_loss
+            output_dict['loss'] = masked_lm_loss
 
 
         ner_loss = None

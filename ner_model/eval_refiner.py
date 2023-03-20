@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
 from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test, dataloader_chatgpt_test
-#dataloader_cmudog_test
 from datasets import load_metric
 import re
 from tqdm import tqdm
@@ -178,7 +177,7 @@ class Model(LightningModule):
         else:
 
             lm_logits, ner_logits = results['logits'], results['ner_logits']
-            ppl = torch.exp(results["lm_loss"])
+            ppl = torch.exp(results["loss"])
 
             result = {}
             for k, v in results.items():
@@ -339,6 +338,7 @@ class Model(LightningModule):
         dist2 = 0
         tc = 0
         ec = 0
+        k_bleu = 0
         rouge_metric = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
         bleu_metric = load_metric("sacrebleu")
         chrf_metric = CHRFScore()
@@ -389,13 +389,18 @@ class Model(LightningModule):
             else:
                 bleu += bleu_metric.compute(predictions=pred_reply, references=[[gold_reply]])['score']
 
+            # knowledge overlapping (knowledge-BLEU)
+            if self.hparams.num_return_sequences > 1:
+                for pred_reply_item in pred_reply:
+                    k_bleu += bleu_metric.compute(predictions=[pred_reply_item], references=[[knowledge]])['score']
+            else:
+                k_bleu += bleu_metric.compute(predictions=pred_reply, references=[[knowledge]])['score']
 
             # ChrF++
             if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
                     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
                     chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
-
             else:
                 pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
                 chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
@@ -409,7 +414,6 @@ class Model(LightningModule):
                     if len(pred_reply_wo_specialchar) == 0:
                         dae += 0
                     else:
-
                         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
                                                         self.hparams)
             else:
@@ -520,6 +524,7 @@ class Model(LightningModule):
         dist2_result = dist2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         tc_result = tc / (test_data_index + 1)
         ec_result = ec / (test_data_index + 1)
+        k_bleu_result = k_bleu / ((test_data_index + 1) * self.hparams.num_return_sequences)
 
 
         if self.hparams.mode != "original":
@@ -541,6 +546,8 @@ class Model(LightningModule):
         result_dict['dae_result'] = dae_result
         result_dict['dist1_result'] = dist1_result
         result_dict['dist2_result'] = dist2_result
+        result_dict['k_bleu'] = k_bleu_result
+
         if self.hparams.mode != "original":
             result_dict['ner_acc'] = ner_acc_result
             result_dict['ner_rec'] = ner_rec_result
@@ -570,11 +577,9 @@ class Model(LightningModule):
             test_dataset = dataloader_wow_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
                                                self.hparams.test_dataset_cache)
         elif self.hparams.data_type == "cmudog":
-
             test_dataset = dataloader_cmudog_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
                                                self.hparams.test_dataset_cache)
         elif self.hparams.data_type == "chatgpt":
-
             test_dataset = dataloader_chatgpt_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
                                                self.hparams.test_dataset_cache)
 
