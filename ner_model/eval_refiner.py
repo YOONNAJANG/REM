@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 
 import os, json
 import logging
@@ -399,10 +399,10 @@ class Model(LightningModule):
             # ChrF++
             if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
-                    pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+                    pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply_item, 0, re.IGNORECASE)
                     chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
             else:
-                pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+                pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply[0], 0, re.IGNORECASE)
                 chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
 
 
@@ -410,15 +410,21 @@ class Model(LightningModule):
             # dae_factuality
             if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
-                    pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+                    pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+                    print(pred_reply_wo_specialchar, len(pred_reply_wo_specialchar), type(pred_reply_wo_specialchar))
+                    knowledge_wo_specialchar = re.sub("[^\w|\s]", "", knowledge, 0, re.IGNORECASE)
+                    knowledge_wo_specialchar = knowledge_wo_specialchar.strip()
                     if len(pred_reply_wo_specialchar) == 0:
                         dae += 0
                     else:
                         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
                                                         self.hparams)
             else:
-                pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+                pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply[0], 0, re.IGNORECASE)
                 pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
+                print(pred_reply_wo_specialchar, len(pred_reply_wo_specialchar), type(pred_reply_wo_specialchar))
+                knowledge_wo_specialchar = re.sub("[^\w|\s}]", "", knowledge, 0, re.IGNORECASE)
+                knowledge_wo_specialchar = knowledge_wo_specialchar.strip()
                 if len(pred_reply_wo_specialchar) == 0 :
                     dae += 0
                 else:

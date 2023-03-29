@@ -393,6 +393,8 @@ def dataloader_cmudog(args, tokenizer):
             utterance = data['utterance']
             for i, utt in enumerate(utterance):
                 history = utt['dialog'][-(2 * args.max_history):]
+                if len(history[-1]) > 256:
+                    continue
                 # persona_cans = utt['persona_candidates']
                 # persona_ner_label = utt['persona_ner_label']
                 golden_knowledge = utt['golden_knowledge']

@@ -152,11 +152,13 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
                     chosen_tok_list.append(input_ids[batch_idx][item_idx])
             chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list
             chosen_tok_tensor = torch.stack(chosen_tok_list, 0)
+            chosen_tok_tensor_mask = (chosen_tok_tensor!=1).nonzero()
+            chosen_tok_tensor = chosen_tok_tensor[chosen_tok_tensor_mask].squeeze(-1)[:512]
 
             new_dec_input = torch.cat([chosen_tok_tensor, dec_input_wo_pad[batch_idx]])
             new_lm_label = torch.cat([torch.tensor([-100]).repeat(chosen_tok_tensor.size()).to(input_ids.device), lm_labels_wo_pad[batch_idx]])
-
             pad_len = self.max_len - new_dec_input.size()[0]
+
             new_dec_input = torch.cat([new_dec_input, torch.tensor([1]).repeat(pad_len).to(input_ids.device)])
             new_lm_label = torch.cat([new_lm_label, torch.tensor([-100]).repeat(pad_len).to(input_ids.device)])
 

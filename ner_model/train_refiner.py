@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("suhyun")
+setproctitle("yoonna")
 import sys
 
 import os
@@ -24,8 +24,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import random
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
-from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow
-# dataloader_cmudog
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog
 
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
@@ -135,25 +134,25 @@ class Model(LightningModule):
             'ner_labels':ner_labels
         }
         result = self.step(inputs, batch_idx)
-        lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
-        loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
-        self.log('train_loss', loss)
-        self.log('train_lm_loss', result['lm_loss'])
-        self.log('train_ner_loss', result['ner_loss'])
+        lm_loss, ner_loss = result['loss'], result['ner_loss']
+        total_loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
+        self.log('train_loss', total_loss)
+        self.log('train_lm_loss', lm_loss)
+        self.log('train_ner_loss', ner_loss)
         self.log('train_ner_acc', result["ner_results"]["accuracy"])
         self.log('train_ner_f1', result["ner_results"]["f1"])
         self.log('train_ner_recall', result["ner_results"]["recall"])
         self.log('train_ner_precision', result["ner_results"]["precision"])
 
-        wandb.log({'train_loss': loss})
-        wandb.log({'train_lm_loss': result['lm_loss']})
-        wandb.log({'train_ner_loss': result['ner_loss']})
+        wandb.log({'train_loss': total_loss})
+        wandb.log({'train_lm_loss': lm_loss})
+        wandb.log({'train_ner_loss': ner_loss})
         wandb.log({'train_ner_acc': result["ner_results"]["accuracy"]})
         wandb.log({'train_ner_f1': result["ner_results"]["f1"]})
         wandb.log({'train_ner_recall': result["ner_results"]["recall"]})
         wandb.log({'train_ner_precision': result["ner_results"]["precision"]})
 
-        result['loss'] = loss
+        result['loss'] = total_loss
         result['lm_loss'] = lm_loss
         result['ner_loss'] = ner_loss
         return result
@@ -175,13 +174,13 @@ class Model(LightningModule):
                 result[k] = v.detach().cpu()
             else:
                 result[k] = v
-        self.log('valid_lm_loss', result['lm_loss'])
+        self.log('valid_lm_loss', result['loss'])
         self.log('valid_ner_loss', result['ner_loss'])
         self.log('valid_ner_acc', result["ner_results"]["accuracy"])
         self.log('valid_ner_f1', result["ner_results"]["f1"])
         self.log('valid_ner_recall', result["ner_results"]["recall"])
         self.log('valid_ner_precision', result["ner_results"]["precision"])
-        wandb.log({'valid_lm_loss': result['lm_loss']})
+        wandb.log({'valid_lm_loss': result['loss']})
         wandb.log({'valid_ner_loss': result['ner_loss']})
         wandb.log({'valid_ner_acc': result["ner_results"]["accuracy"]})
         wandb.log({'valid_ner_f1': result["ner_results"]["f1"]})
@@ -200,9 +199,9 @@ class Model(LightningModule):
             ner_f1 = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
 
             for i in outputs:
-                lm_loss += i['lm_loss']
+                lm_loss += i['loss']
                 cls_loss += i['ner_loss']
-                ppl += torch.exp(i['lm_loss'])
+                ppl += torch.exp(i['loss'])
                 ner_acc += i["ner_results"]["accuracy"]
                 ner_f1 += i["ner_results"]["f1"]
 
@@ -271,6 +270,8 @@ class Model(LightningModule):
             train_dataset, valid_dataset = dataloader_wow(self.hparams, self.tokenizer)
         elif self.hparams.data_type == "cmudog":
             train_dataset, valid_dataset = dataloader_cmudog(self.hparams, self.tokenizer)
+        else:
+            raise NotImplementedError
         return train_dataset, valid_dataset
 
     def train_dataloader(self):
@@ -366,7 +367,7 @@ def main():
         'gradient_clip_val': args['max_norm'],
         'deterministic': torch.cuda.is_available(),
         'gpus': args['gpu_num'],
-        'strategy': DDPPlugin(find_unused_parameters=True),
+        'strategy': DDPPlugin(find_unused_parameters=False),
         'precision': args['precision'],}
         # 'logger': wandb_logger}
 
