@@ -177,7 +177,7 @@ def build_input_for_bart(args, history_knowledge_data, tokenizer):
                 if len(reply) > reply_max_len:
                     reply_max_len = len(reply)
                     reply_max_tokens = reply
-                dial_hist = history_knowledge[utt_k][-(2*args.max_history+1):-1]
+                dial_hist = history_knowledge[utt_k][-(2*args.max_history+2):-1]
                 break
         
         if reply_over_flag is True:

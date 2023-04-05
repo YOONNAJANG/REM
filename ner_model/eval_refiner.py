@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("leejeongwoo")
 
 import os, json
 import logging
@@ -417,8 +417,7 @@ class Model(LightningModule):
                     if len(pred_reply_wo_specialchar) == 0:
                         dae += 0
                     else:
-                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
-                                                        self.hparams)
+                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer, self.hparams)
             else:
                 pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply[0], 0, re.IGNORECASE)
                 pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
@@ -428,8 +427,7 @@ class Model(LightningModule):
                 if len(pred_reply_wo_specialchar) == 0 :
                     dae += 0
                 else:
-                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
-                                                    self.hparams)
+                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer, self.hparams)
             # print('dae_score', dae)
 
             # print('distN')
@@ -629,7 +627,7 @@ def main():
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for 1 generated result")
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--dae_model", type=str, default="/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
+    parser.add_argument("--dae_model", type=str, default="/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
