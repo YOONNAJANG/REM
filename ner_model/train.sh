@@ -15,11 +15,11 @@ echo 'n, y 학습'
 #CUDA_VISIBLE_DEVICES=5 nohup python ner_model/train_refiner.py --ner_coef 0.7 --epochs 100 --data_type "focus,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuscmudog/gen1_ner0.7 > train_log/nohup_focuscmudog_gen1_ner0.7.out &
 #CUDA_VISIBLE_DEVICES=7 nohup python ner_model/train_refiner.py --ner_coef 1 --epochs 100 --data_type "focus,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuscmudog/gen1_ner1 > train_log/nohup_focuscmudog_gen1_ner1.out &
 ##
-CUDA_VISIBLE_DEVICES=0 nohup python ner_model/train_refiner.py --ner_coef 0.1 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.1 > train_log/nohup_focuswowcmudog_gen1_ner0.1.out &
-CUDA_VISIBLE_DEVICES=1 nohup python ner_model/train_refiner.py --ner_coef 0.3 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.3 > train_log/nohup_focuswowcmudog_gen1_ner0.3.out &
-CUDA_VISIBLE_DEVICES=2 nohup python ner_model/train_refiner.py --ner_coef 0.5 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.5 > train_log/nohup_focuswowcmudog_gen1_ner0.5.out &
-CUDA_VISIBLE_DEVICES=3 nohup python ner_model/train_refiner.py --ner_coef 0.7 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.7 > train_log/nohup_focuswowcmudog_gen1_ner0.7.out &
-CUDA_VISIBLE_DEVICES=5 nohup python ner_model/train_refiner.py --ner_coef 1 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner1 > train_log/nohup_focuswowcmudog_gen1_ner1.out &
+#CUDA_VISIBLE_DEVICES=0 nohup python ner_model/train_refiner.py --ner_coef 0.1 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.1 > train_log/nohup_focuswowcmudog_gen1_ner0.1.out &
+#CUDA_VISIBLE_DEVICES=1 nohup python ner_model/train_refiner.py --ner_coef 0.3 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.3 > train_log/nohup_focuswowcmudog_gen1_ner0.3.out &
+#CUDA_VISIBLE_DEVICES=2 nohup python ner_model/train_refiner.py --ner_coef 0.5 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.5 > train_log/nohup_focuswowcmudog_gen1_ner0.5.out &
+#CUDA_VISIBLE_DEVICES=3 nohup python ner_model/train_refiner.py --ner_coef 0.7 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner0.7 > train_log/nohup_focuswowcmudog_gen1_ner0.7.out &
+#CUDA_VISIBLE_DEVICES=5 nohup python ner_model/train_refiner.py --ner_coef 1 --epochs 100 --data_type "focus,wow,cmudog" --output_dir /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focuswowcmudog/gen1_ner1 > train_log/nohup_focuswowcmudog_gen1_ner1.out &
 
 }
 
