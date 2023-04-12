@@ -24,7 +24,12 @@ from collections import Counter, defaultdict
 import numpy as np
 import random
 from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
+<<<<<<< Updated upstream
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog
+=======
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog, dataloader_multi
+# dataloader_cmudog
+>>>>>>> Stashed changes
 
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
@@ -263,6 +268,7 @@ class Model(LightningModule):
         }
 
     def dataloader(self):
+<<<<<<< Updated upstream
 
         if self.hparams.data_type == "focus":
             train_dataset, valid_dataset = dataloader_focus(self.hparams, self.tokenizer)
@@ -272,6 +278,20 @@ class Model(LightningModule):
             train_dataset, valid_dataset = dataloader_cmudog(self.hparams, self.tokenizer)
         else:
             raise NotImplementedError
+=======
+        dataset_list = self.hparams.data_type.split(",")
+        print(dataset_list)
+        if len(dataset_list) > 1:
+            train_dataset, valid_dataset = dataloader_multi(self.hparams, self.tokenizer, dataset_list)
+        else:
+            data_type = dataset_list[0]
+            if data_type == "focus":
+                train_dataset, valid_dataset = dataloader_focus(self.hparams, self.tokenizer)
+            elif data_type == "wow":
+                train_dataset, valid_dataset = dataloader_wow(self.hparams, self.tokenizer)
+            elif data_type == "cmudog":
+                train_dataset, valid_dataset = dataloader_cmudog(self.hparams, self.tokenizer)
+>>>>>>> Stashed changes
         return train_dataset, valid_dataset
 
     def train_dataloader(self):
