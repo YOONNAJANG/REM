@@ -11,7 +11,7 @@ from tqdm import tqdm
 from transformers import cached_path
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 # from baselines.FoCus.utils_focus import get_dataset_refine
-
+from sklearn.utils import shuffle
 import json
 import random
 from random import randrange
@@ -228,7 +228,7 @@ def build_input_cmudog(args, tokenizer, history, golden_knowledge, knowledge_ner
     return instance
 
 
-def dataloader_focus(args, tokenizer):
+def dataloader_focus(args, tokenizer, multi=False):
 
     train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/train.json"
     train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/our_train_cache.tar.gz"
@@ -264,7 +264,8 @@ def dataloader_focus(args, tokenizer):
                                              knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
-
+    if multi:
+        return datasets
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"train": [], "valid": []}
     # print(datasets)
@@ -281,7 +282,7 @@ def dataloader_focus(args, tokenizer):
     train_dataset, valid_dataset = TensorDataset(*tensor_datasets["train"]), TensorDataset(*tensor_datasets["valid"])
     return train_dataset, valid_dataset
 
-def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache):
+def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache, multi=False):
 
     # test_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json"
     # test_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/our_test_cache.tar.gz"
@@ -312,6 +313,8 @@ def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache)
                                              knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
+    if multi:
+        return datasets
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"test": []}
     # print(datasets)
@@ -329,7 +332,7 @@ def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache)
 
 ################################################################################################################
 ################################################################################################################
-def dataloader_wow(args, tokenizer):
+def dataloader_wow(args, tokenizer, multi=False):
 
     train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/train.json"
     train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/our_train_cache.tar.gz"
@@ -367,7 +370,8 @@ def dataloader_wow(args, tokenizer):
                                              knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
-
+    if multi:
+        return datasets
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"train": [], "valid": []}
     print(tokenizer.pad_token_id)
@@ -376,14 +380,70 @@ def dataloader_wow(args, tokenizer):
         # print(dataset)
         for input_name in MODEL_INPUTS:
             tensor = torch.tensor(dataset[input_name])
-            print(input_name, tensor.size())
+
+            tensor_datasets[dataset_name].append(tensor)
+
+    print("Build train and valid dataloaders")
+    train_dataset, valid_dataset = TensorDataset(*tensor_datasets["train"]), TensorDataset(*tensor_datasets["valid"])
+    return train_dataset, valid_dataset
+def dataloader_multi(args, tokenizer, data_list):
+    valid_data_type = data_list[0]
+    print("Pad inputs and convert to Tensor")
+    datasets = {"train": defaultdict(list), "valid": defaultdict(list)}
+    key_list = ['input_ids', 'decoder_input_ids', 'lm_labels', 'ner_labels']
+    for data_type in data_list:
+        if data_type == "focus":
+            tmp_dataset = dataloader_focus(args, tokenizer, multi=True)
+        elif data_type == "wow":
+            tmp_dataset = dataloader_wow(args, tokenizer, multi=True)
+        elif data_type == "cmudog":
+            tmp_dataset = dataloader_cmudog(args, tokenizer, multi=True)
+        else:
+            print("--", data_type, "--")
+            breakpoint()
+
+        ### train 모아
+        for key in key_list :
+            for instance in tmp_dataset["train"][key]:
+                datasets["train"][key].append(instance)
+
+
+
+        if data_type == valid_data_type:
+            for key in key_list:
+                for instance in tmp_dataset["valid"][key]:
+                    datasets["valid"][key].append(instance)
+
+    ## shuffle
+
+    input_id, decoder_input_id, lm_labels, ner_labels = shuffle(datasets["train"]["input_ids"], datasets["train"]["decoder_input_ids"], datasets["train"]["lm_labels"],datasets["train"]["ner_labels"])
+    datasets["train"]["input_ids"] = input_id
+    datasets["train"]["decoder_input_ids"] = decoder_input_id
+    datasets["train"]["lm_labels"] = lm_labels
+    datasets["train"]["ner_labels"] = ner_labels
+
+        # total_tensor_datasets["train"].extend(tmp_dataset["train"])
+
+        # breakpoint()
+
+    #
+    # # print(datasets)
+    tensor_datasets = {"train": [], "valid": []}
+    for dataset_name, dataset in datasets.items():
+        dataset = pad_dataset_focus(dataset, padding=tokenizer.pad_token_id)
+        # print(dataset)
+        for input_name in MODEL_INPUTS:
+            tensor = torch.tensor(dataset[input_name])
+            print("-----", input_name, tensor.size())
             tensor_datasets[dataset_name].append(tensor)
 
     print("Build train and valid dataloaders")
     train_dataset, valid_dataset = TensorDataset(*tensor_datasets["train"]), TensorDataset(*tensor_datasets["valid"])
     return train_dataset, valid_dataset
 
-def dataloader_cmudog(args, tokenizer):
+
+
+def dataloader_cmudog(args, tokenizer, multi = False):
 
     train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/cmudog/train.json"
     train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/cmudog/train_cache.tar.gz"
@@ -422,7 +482,8 @@ def dataloader_cmudog(args, tokenizer):
                                              knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
-
+    if multi:
+        return datasets
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"train": [], "valid": []}
     # print(datasets)
@@ -431,7 +492,6 @@ def dataloader_cmudog(args, tokenizer):
         # print(dataset)
         for input_name in MODEL_INPUTS:
             tensor = torch.tensor(dataset[input_name])
-            print(input_name, tensor.size())
             tensor_datasets[dataset_name].append(tensor)
 
     print("Build train and valid dataloaders")
@@ -439,7 +499,7 @@ def dataloader_cmudog(args, tokenizer):
     return train_dataset, valid_dataset
 
 
-def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache):
+def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache, multi=False):
 
     regen_data = get_dataset_refine_wow_test(tokenizer, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
@@ -470,7 +530,8 @@ def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache):
                                              knowledge_ner_label, template)
             for input_name, input_array in instance.items():
                 datasets[key][input_name].append(input_array)
-
+    if multi:
+        return datasets
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"test": []}
     # print(datasets)
@@ -534,7 +595,7 @@ def dataloader_chatgpt_test(args, tokenizer, test_dataset_path, test_dataset_cac
     return test_dataset
 
 
-def dataloader_cmudog_test(args, tokenizer, test_dataset_path, test_dataset_cache):
+def dataloader_cmudog_test(args, tokenizer, test_dataset_path, test_dataset_cache, multi=False):
     regen_data = get_dataset_refine_cmudog_test(tokenizer, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
     template = tuple([int(item) for item in args.template.split(',')])
@@ -575,7 +636,8 @@ def dataloader_cmudog_test(args, tokenizer, test_dataset_path, test_dataset_cach
             tensor = torch.tensor(dataset[input_name])
             print(input_name, tensor.size())
             tensor_datasets[dataset_name].append(tensor)
-
+    if multi:
+        return tensor_datasets
     print("Build test dataloaders")
     test_dataset = TensorDataset(*tensor_datasets["test"])
     return test_dataset

@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("leejeongwoo")
 
 import os, json
 import logging
@@ -180,7 +180,7 @@ class Model(LightningModule):
             'ner_labels':ner_labels
         }
         results = self.step(inputs, batch_idx)
-        # print(result.items()) # ner_logits, ner_loss, lm_logits, lm_loss, ner_results
+        # print(results.items()) # ner_logits, ner_loss, lm_logits, lm_loss, ner_results
 
         if self.hparams.mode == "original":
             lm_logits = results['logits']
@@ -195,8 +195,8 @@ class Model(LightningModule):
 
         else:
 
-            lm_logits, ner_logits = results['logits'], results['ner_logits']
-            ppl = torch.exp(results["loss"])
+            lm_logits, ner_logits = results['lm_logits'], results['ner_logits']
+            ppl = torch.exp(results["lm_loss"])
 
             result = {}
             for k, v in results.items():
@@ -438,6 +438,7 @@ class Model(LightningModule):
                     else:
                         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge_wo_specialchar, dae_model, dae_tokenizer,
                                                         self.hparams)
+
             else:
                 pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply[0], 0, re.IGNORECASE)
                 pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
@@ -447,8 +448,7 @@ class Model(LightningModule):
                 if len(pred_reply_wo_specialchar) == 0 :
                     dae += 0
                 else:
-                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge_wo_specialchar, dae_model, dae_tokenizer,
-                                                    self.hparams)
+                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer, self.hparams)
             # print('dae_score', dae)
 
             # print('distN')
@@ -536,6 +536,121 @@ class Model(LightningModule):
 
             tc += tmp_tc
             ec += tmp_ec
+            # # ChrF++
+            # if self.hparams.num_return_sequences > 1:
+            #     for pred_reply_item in pred_reply:
+            #         pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+            #         chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
+            # else:
+            #     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+            #     chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
+            #
+            #
+            # # print('dae')
+            # # dae_factuality
+            # if self.hparams.num_return_sequences > 1:
+            #     for pred_reply_item in pred_reply:
+            #         pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
+            #         if len(pred_reply_wo_specialchar) == 0:
+            #             dae += 0
+            #         else:
+            #             dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+            #                                             self.hparams)
+            # else:
+            #     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
+            #     pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
+            #     if len(pred_reply_wo_specialchar) == 0 :
+            #         dae += 0
+            #     else:
+            #         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+            #                                         self.hparams)
+            # # print('dae_score', dae)
+            #
+            # # print('distN')
+            # # distinct-N
+            # if self.hparams.num_return_sequences > 1:
+            #     for pred_reply_item in pred_reply:
+            #         dist1 += distinct_n_sentence_level(pred_reply_item, 1)
+            #         dist2 += distinct_n_sentence_level(pred_reply_item, 2)
+            # else:
+            #     dist1 += distinct_n_sentence_level(pred_reply[0], 1)
+            #     dist2 += distinct_n_sentence_level(pred_reply[0], 2)
+            #
+            #
+            # # print("TC")
+            # pred_format = {'LOC': {"keyword": []},
+            #                'MISC': {"keyword": []},
+            #                'PER': {"keyword": []},
+            #                'ORG': {"keyword": []},
+            #                }
+            # gold_format = {'LOC': {"keyword": []},
+            #                'MISC': {"keyword": []},
+            #                'PER': {"keyword": []},
+            #                'ORG': {"keyword": []},
+            #                }
+            # knowledge_format = {'LOC': {"keyword": []},
+            #                'MISC': {"keyword": []},
+            #                'PER': {"keyword": []},
+            #                'ORG': {"keyword": []},
+            #                }
+            # tmp_ec = 0
+            # tmp_tc = 0
+            # if pred_reply[0] != "":
+            #
+            #     #pred_reply, gold_reply
+            #     sentence = Sentence(pred_reply[0])
+            #     tagger.predict(sentence)
+            #     for entity in sentence.get_spans('ner'):
+            #         if len(pred_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+            #                 pred_format[entity.get_label("ner").value]["keyword"]:
+            #             # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            #             pred_format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            #     sentence = Sentence(gold_reply)
+            #     tagger.predict(sentence)
+            #     for entity in sentence.get_spans('ner'):
+            #         if len(gold_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+            #                 gold_format[entity.get_label("ner").value]["keyword"]:
+            #             # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            #             gold_format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            #     sentence = Sentence(knowledge)
+            #     tagger.predict(sentence)
+            #     for entity in sentence.get_spans('ner'):
+            #         if len(knowledge_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+            #                 knowledge_format[entity.get_label("ner").value]["keyword"]:
+            #             # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            #             knowledge_format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            #
+            #
+            #     for key in gold_format.keys():
+            #         gold_w_num = len(gold_format[key]["keyword"])
+            #         pred_w_num = len(pred_format[key]["keyword"])
+            #         if gold_w_num == 0:
+            #             continue
+            #         tc_ratio = pred_w_num / gold_w_num
+            #         tmp_tc += tc_ratio
+            #     tmp_tc = tmp_tc /4
+            #
+            #
+            #     # print("EC")
+            #     pred_k_list = []
+            #     gold_k_list = []
+            #     knowledge_k_list = []
+            #     for key in gold_format.keys():
+            #         pred_k_list.extend(pred_format[key]["keyword"])
+            #         gold_k_list.extend(gold_format[key]["keyword"])
+            #         knowledge_k_list.extend(knowledge_format[key]["keyword"])
+            #
+            #     knowledge_gold = list(set(knowledge_k_list) & set(gold_k_list))
+            #     # print(knowledge_gold)
+            #     knowledge_gold_pred = list(set(knowledge_gold) & set(pred_k_list))
+            #     # print(knowledge_gold_pred)
+            #     if len(knowledge_gold) == 0:
+            #         tmp_ec = 0
+            #     else:
+            #         tmp_ec = len(knowledge_gold_pred) / len(knowledge_gold)
+            #
+            # tc += tmp_tc
+            # ec += tmp_ec
 
 
         chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -645,7 +760,7 @@ def main():
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for 1 generated result")
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--dae_model", type=str, default="/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
+    parser.add_argument("--dae_model", type=str, default="/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")

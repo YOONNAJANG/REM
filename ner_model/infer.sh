@@ -2,7 +2,20 @@
 ###########################################################
 ##################       chatgpt      #######################
 ###########################################################
-#CUDA_VISIBLE_DEVICES=0 nohup python ner_model/eval_refiner.py \
+CUDA_VISIBLE_DEVICES=0 nohup python ner_model/eval_refiner.py \
+--data_type chatgpt \
+--test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
+--test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
+--model_name BART \
+--model_path facebook/bart-base \
+--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
+--num_beams 1 \
+--flag focus_chatgpt_refine_greedy_w_kblue \
+--mode ner \
+--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_greedy.out &
+
+#####
+#CUDA_VISIBLE_DEVICES=1 nohup python ner_model/eval_refiner.py \
 #--data_type chatgpt \
 #--test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
 #--test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
@@ -10,72 +23,59 @@
 #--model_path facebook/bart-base \
 #--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
 #--num_beams 1 \
-#--flag focus_chatgpt_refine_greedy \
+#--top_k 5 \
+#--flag focus_chatgpt_refine_top5_w_kblue \
 #--mode ner \
-#--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_greedy.out &
-
-####
-CUDA_VISIBLE_DEVICES=1 nohup python ner_model/eval_refiner.py \
---data_type chatgpt \
---test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
---test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
---model_name BART \
---model_path facebook/bart-base \
---checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
---num_beams 1 \
---top_k 5 \
---flag focus_chatgpt_refine_top5 \
---mode ner \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/  > test_log/focus_chatgpt_refine_top5.out &
-
-CUDA_VISIBLE_DEVICES=1 nohup python ner_model/eval_refiner.py \
---data_type chatgpt \
---test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
---test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
---model_name BART \
---model_path facebook/bart-base \
---checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
---num_beams 1 \
---top_k 10 \
---flag focus_chatgpt_refine_top10 \
---mode ner \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_top10.out &
-
-CUDA_VISIBLE_DEVICES=2 nohup python ner_model/eval_refiner.py \
---data_type chatgpt \
---test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
---test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
---model_name BART \
---model_path facebook/bart-base \
---checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
---num_beams 2 \
---flag focus_chatgpt_refine_beam2 \
---mode ner \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_beam2.out &
-
-CUDA_VISIBLE_DEVICES=2 nohup python ner_model/eval_refiner.py \
---data_type chatgpt \
---test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
---test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
---model_name BART \
---model_path facebook/bart-base \
---checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
---num_beams 5 \
---flag focus_chatgpt_refine_beam5 \
---mode ner \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_beam5.out &
-
-CUDA_VISIBLE_DEVICES=3 nohup python ner_model/eval_refiner.py \
---data_type chatgpt \
---test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
---test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
---model_name BART \
---model_path facebook/bart-base \
---checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
---num_beams 10 \
---flag focus_chatgpt_refine_beam10 \
---mode ner \
---output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_beam10.out &
+#--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/  > test_log/focus_chatgpt_refine_top5.out &
+#
+#CUDA_VISIBLE_DEVICES=1 nohup python ner_model/eval_refiner.py \
+#--data_type chatgpt \
+#--test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
+#--test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
+#--model_name BART \
+#--model_path facebook/bart-base \
+#--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
+#--num_beams 1 \
+#--top_k 10 \
+#--flag focus_chatgpt_refine_top10_w_kblue \
+#--mode ner \
+#--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_top10.out &
+#
+#CUDA_VISIBLE_DEVICES=2 nohup python ner_model/eval_refiner.py \
+#--data_type chatgpt \
+#--test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
+#--test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
+#--model_name BART \
+#--model_path facebook/bart-base \
+#--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
+#--num_beams 2 \
+#--flag focus_chatgpt_refine_beam2_w_kblue \
+#--mode ner \
+#--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_beam2.out &
+#
+#CUDA_VISIBLE_DEVICES=2 nohup python ner_model/eval_refiner.py \
+#--data_type chatgpt \
+#--test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
+#--test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
+#--model_name BART \
+#--model_path facebook/bart-base \
+#--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
+#--num_beams 5 \
+#--flag focus_chatgpt_refine_beam5_w_kblue \
+#--mode ner \
+#--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_beam5.out &
+#
+#CUDA_VISIBLE_DEVICES=3 nohup python ner_model/eval_refiner.py \
+#--data_type chatgpt \
+#--test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json \
+#--test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
+#--model_name BART \
+#--model_path facebook/bart-base \
+#--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/focus_new/gen1_ner0.7_E100/epoch25-valid_lm_loss1.4795.ckpt \
+#--num_beams 10 \
+#--flag focus_chatgpt_refine_beam10_w_kblue \
+#--mode ner \
+#--output_dir /home/data/ssh5131/focus_modeling/eval_output/chatgpt/focus/ > test_log/focus_chatgpt_refine_beam10.out &
 
 
 

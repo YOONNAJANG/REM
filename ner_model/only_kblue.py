@@ -34,18 +34,18 @@ class Model(LightningModule):
 
     def test(self):
 
-        print("Load DAE model weights")
-        from transformers import ElectraConfig, ElectraTokenizer
-        from metrics.dae_factuality.utils import ElectraDAEModel
-        dae_config_class, dae_model_class, dae_tokenizer_class = ElectraConfig, ElectraDAEModel, ElectraTokenizer
-        dae_tokenizer = dae_tokenizer_class.from_pretrained("/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu")
-        dae_model = dae_model_class.from_pretrained("/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu")
-        dae_model.to("cuda")
-
-        print("Load NER tagger")
-        from flair.data import Sentence
-        from flair.models import SequenceTagger
-        tagger = SequenceTagger.load("flair/ner-english-large")
+        # print("Load DAE model weights")
+        # from transformers import ElectraConfig, ElectraTokenizer
+        # from metrics.dae_factuality.utils import ElectraDAEModel
+        # dae_config_class, dae_model_class, dae_tokenizer_class = ElectraConfig, ElectraDAEModel, ElectraTokenizer
+        # dae_tokenizer = dae_tokenizer_class.from_pretrained("/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu")
+        # dae_model = dae_model_class.from_pretrained("/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu")
+        # dae_model.to("cuda")
+        #
+        # print("Load NER tagger")
+        # from flair.data import Sentence
+        # from flair.models import SequenceTagger
+        # tagger = SequenceTagger.load("flair/ner-english-large")
 
         r1 = 0
         r2 = 0
@@ -63,15 +63,15 @@ class Model(LightningModule):
         chrf_metric = CHRFScore()
 
         result_list = list()
-        chatgpt_data = json.load(open("/home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours.json"))
+        chatgpt_data = json.load(open(self.hparams.test_dataset_path))
 
-        for test_data_index, test_data in enumerate(tqdm(chatgpt_data["data"])):
+        for test_data_index, test_data in enumerate(tqdm(chatgpt_data["text_result"])):
             pred_dict = dict()
 
-            pred_reply = test_data["chatgpt_bad_reaponse"]
-            pred_reply = [pred_reply]
-            gold_reply = test_data["our_response"]
-            knowledge = test_data["knowledge"]
+            # pred_reply = test_data["chatgpt_bad_reaponse"]
+            pred_reply = test_data["pred"]
+            gold_reply = test_data["gold"]
+            knowledge = test_data["knoweldge"]
 
             # ROUGE
 
@@ -223,7 +223,7 @@ class Model(LightningModule):
 
         result_dict['text_result'] = result_list
         print(result_dict)
-        with open( 'focus_chatgpt_before_refine_w_kblue.json', 'w') as outputfile:
+        with open(self.hparams.output_dir + self.hparams.flag + '.json', 'w')  as outputfile:
             json.dump(result_dict, outputfile, indent='\t')
 
 
