@@ -73,7 +73,7 @@ def score_example_single_context(decode_text, input_text, model, tokenizer, args
         inputs = {'input_ids': input_ids, 'attention': attention, 'token_ids': token_ids, 'child': child, 'head': head,
                   'dep_labels': dep_labels, 'arcs': arc_labels, 'arc_label_lengths': arc_label_lengths,
                   'device': args.device}
-
+        # print('inputs: ', inputs['input_ids'])
         outputs = model(**inputs)
         tmp_eval_loss, logits = outputs[:2]
         preds = logits.detach().cpu().numpy()

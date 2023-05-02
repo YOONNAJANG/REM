@@ -49,23 +49,47 @@ class Model(LightningModule):
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
         from transformers import BartForConditionalGeneration
         if self.hparams.mode == "gen_exp":
-            from refiner_modules import BartEncDec_NER_explicit as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from refiner_modules import BartEncDec_NER_explicit as model
+                from transformers import BartConfig as config
+                from transformers import BartForConditionalGeneration as congenmodel
+            else:
+                from refiner_modules import T5EncDec_NER_explicit as model
+                from transformers import T5Config as config
+                from transformers import T5ForConditionalGeneration as congenmodel
         elif self.hparams.mode == "gen_imp":
-            from refiner_modules import BartEncDec_NER_implicit as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from refiner_modules import BartEncDec_NER_implicit as model
+                from transformers import BartConfig as config
+                from transformers import BartForConditionalGeneration as congenmodel
+            else:
+                from refiner_modules import T5EncDec_NER_implicit as model #NotImplemented
+                from transformers import T5Config as config
+                from transformers import T5ForConditionalGeneration as congenmodel
         elif self.hparams.mode == "original":
-            from transformers import BartForConditionalGeneration as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from transformers import BartForConditionalGeneration as model
+                from transformers import BartForConditionalGeneration as congenmodel
+            else:
+                from transformers import T5ForConditionalGeneration as model
+                from transformers import T5ForConditionalGeneration as congenmodel
         elif self.hparams.mode == "ner":
-            from refiner_modules import BartEncDec as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from refiner_modules import BartEncDec as model
+                from transformers import BartConfig as config
+                from transformers import BartForConditionalGeneration as congenmodel
+            else:
+                from refiner_modules import T5EncDec as model
+                from transformers import T5Config as config
+                from transformers import T5ForConditionalGeneration as congenmodel
         else:
             raise NotImplementedError
 
-        self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
-        self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
-        self.congenmodel = BartForConditionalGeneration.from_pretrained(self.hparams.pretrained_model, config=self.config)
+        self.config = config.from_pretrained(self.hparams.pretrained_model)
+        self.model = model.from_pretrained(self.hparams.pretrained_model, config=self.config)
+        self.congenmodel = congenmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
         self.tokenizer = AutoTokenizer.from_pretrained(self.hparams.pretrained_model)
         self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel, self.tokenizer, special_tokens=special_tokens_focus)
-
-
 
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
@@ -75,7 +99,6 @@ class Model(LightningModule):
             self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel,
                                                                                    self.tokenizer,
                                                                                    special_tokens={'pseudo_token':self.pseudo_token})
-
             for name, param in self.model.named_parameters():
                 # print('not frozen params: ', name)
                 # if name.startswith('model.encoder.'):
@@ -95,18 +118,15 @@ class Model(LightningModule):
             self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
             self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
 
-
         self.model.to(self.hparams.device)
         self.congenmodel.to(self.hparams.device)
         self.model.eval()
         self.congenmodel.eval()
 
-
         if len(self.hparams.checkpoint) > 0:
             checkpoint = torch.load(self.hparams.checkpoint)['state_dict']
             checkpoint_congen = {k[6:]: v for k, v in checkpoint.items()}
             self.congenmodel.load_state_dict(checkpoint_congen, strict=False)
-
             self.checkpoint_loaded = dict()
             self.checkpoint_prompt = dict()
             for k, v in checkpoint.items():
@@ -114,7 +134,6 @@ class Model(LightningModule):
                     self.checkpoint_loaded[k[6:]] = v
                 else:
                     self.checkpoint_prompt[k] = v
-
             self.model.load_state_dict(self.checkpoint_loaded, strict=False)
             # self.congenmodel.load_state_dict(checkpoint, strict=False)
 
@@ -417,7 +436,7 @@ class Model(LightningModule):
                     if len(pred_reply_wo_specialchar) == 0:
                         dae += 0
                     else:
-                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge_wo_specialchar, dae_model, dae_tokenizer,
                                                         self.hparams)
             else:
                 pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply[0], 0, re.IGNORECASE)
@@ -428,7 +447,7 @@ class Model(LightningModule):
                 if len(pred_reply_wo_specialchar) == 0 :
                     dae += 0
                 else:
-                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge_wo_specialchar, dae_model, dae_tokenizer,
                                                     self.hparams)
             # print('dae_score', dae)
 
@@ -606,12 +625,9 @@ def main():
                         default='/home/mnt/ssh5131/FoCus_data/our_data/focus_cache.tar.gz',
                         help="Path or url of the dataset cache")
     parser.add_argument("--flag", type=str, default="", help="add description of the output file")
-    parser.add_argument("--model_name", type=str, default="BART", help="{BART, T5, LED, transformer-encdec}")
-    parser.add_argument("--model_path", type=str, default="facebook/bart-base",
-                        help="pre-trained model path among {facebook/bart-base, t5-base, allenai/led-base-16384, facebook/bart-large, t5-large, allenai/led-large-16384}")
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
-    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
+    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pre-trained model path among {facebook/bart-base, t5-base, allenai/led-base-16384, facebook/bart-large, t5-large, allenai/led-large-16384}"") #facebook/bart-base")
     parser.add_argument("--mode", type=str, default="gen_imp", help="{ner, gen_exp, gen_imp, original}")
     parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for testing")

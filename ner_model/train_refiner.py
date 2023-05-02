@@ -36,18 +36,35 @@ class Model(LightningModule):
         self.save_hyperparameters()
         self.pseudo_token = self.hparams.pseudo_token
 
-        from transformers import AutoTokenizer, BartConfig
+        from transformers import AutoTokenizer
         if self.hparams.mode == "ner":
-            from refiner_modules import BartEncDec as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from refiner_modules import BartEncDec as model
+                from transformers import BartConfig as config
+            else:
+                from refiner_modules import T5EncDec as model
+                from transformers import T5Config as config
+
         elif self.hparams.mode == "gen_exp":
-            from refiner_modules import BartEncDec_NER_explicit as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from refiner_modules import BartEncDec_NER_explicit as model
+                from transformers import BartConfig as config
+            else:
+                from refiner_modules import T5EncDec_NER_explicit as model
+                from transformers import T5Config as config
+
         elif self.hparams.mode == "gen_imp":
-            from refiner_modules import BartEncDec_NER_implicit as bartmodel
+            if "bart" in self.hparams.pretrained_model:
+                from refiner_modules import BartEncDec_NER_implicit as model
+                from transformers import BartConfig as config
+            else:
+                from refiner_modules import T5EncDec_NER_implicit as model #NotImplemented
+                from transformers import T5Config as config
         else:
             raise NotImplementedError
 
-        self.config = BartConfig.from_pretrained(self.hparams.pretrained_model)
-        self.model = bartmodel.from_pretrained(self.hparams.pretrained_model, config=self.config)
+        self.config = config.from_pretrained(self.hparams.pretrained_model)
+        self.model = model.from_pretrained(self.hparams.pretrained_model, config=self.config)
         self.tokenizer = AutoTokenizer.from_pretrained(self.hparams.pretrained_model)
         # self.model.to(self.hparams.device)
         self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer, special_tokens=special_tokens_focus)
@@ -289,11 +306,11 @@ def main():
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
     parser.add_argument("--mode", type=str, default="ner", help="{ner, gen_exp, gen_imp}")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
-    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base
+    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base, t5-small
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
     parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--valid_batch_size", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--random_seed", type=int, default=644128)

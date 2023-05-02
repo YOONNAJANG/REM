@@ -4,8 +4,11 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss, KLDivLoss
 from transformers import BartForConditionalGeneration
 from transformers.models.bart.modeling_bart import BartPretrainedModel, BartEncoder, BartDecoder, BartConfig, BartLearnedPositionalEmbedding, BartEncoderLayer, _expand_mask
+from transformers import T5ForConditionalGeneration
+from transformers.models.t5.modeling_t5 import T5PreTrainedModel, T5Stack, T5Config
 import random, math
 from typing import Optional, Tuple
+import copy
 
 from transformers.modeling_outputs import (
     ModelOutput,
@@ -20,7 +23,6 @@ from transformers.modeling_outputs import (
 from torch.nn import Sigmoid, Softmax
 from datasets import load_metric
 logger = logging.getLogger(__name__)
-
 
 class Summary(nn.Module):
     def __init__(self, emb_dim=768):
@@ -112,7 +114,6 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
         self.init_weights()
         self.id2label = {0:"O", 1:"B", 2:"I"}
         self.pad_token_id = config.pad_token_id
-        self.max_len = config.max_position_embeddings
 
     def forward(
             self,
@@ -157,7 +158,7 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
 
             new_dec_input = torch.cat([chosen_tok_tensor, dec_input_wo_pad[batch_idx]])
             new_lm_label = torch.cat([torch.tensor([-100]).repeat(chosen_tok_tensor.size()).to(input_ids.device), lm_labels_wo_pad[batch_idx]])
-            pad_len = self.max_len - new_dec_input.size()[0]
+            pad_len = self.max_position - new_dec_input.size()[0]
 
             new_dec_input = torch.cat([new_dec_input, torch.tensor([1]).repeat(pad_len).to(input_ids.device)])
             new_lm_label = torch.cat([new_lm_label, torch.tensor([-100]).repeat(pad_len).to(input_ids.device)])
@@ -210,6 +211,210 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
             output_dict['ner_results'] = ner_results
 
         return output_dict
+
+
+class T5EncDec(T5ForConditionalGeneration):
+    _keys_to_ignore_on_load_missing = [
+        r"encoder.embed_tokens.weight",
+        r"decoder.embed_tokens.weight",
+        r"lm_head.weight",
+    ]
+    _keys_to_ignore_on_load_unexpected = [
+        r"decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
+    ]
+    def __init__(self, config):
+        super().__init__(config)
+        self.summary = Summary(emb_dim=config.d_model)
+        self.max_position = config.n_positions
+        self.metric = load_metric("seqeval")
+        self.init_weights()
+        self.id2label = {0:"O", 1:"B", 2:"I"}
+
+    def forward(
+            self,
+            input_ids=None,
+            inputs_embeds=None,
+            decoder_input_ids=None,
+            labels=None,
+            ner_labels=None
+            ):
+
+        output_dict = dict()
+
+        if inputs_embeds == None:
+            enc_outputs = self.encoder(input_ids=input_ids)
+            hidden_states = enc_outputs[0]
+            decoder_outputs = self.decoder(input_ids=decoder_input_ids, encoder_hidden_states=hidden_states)
+        else:
+            enc_outputs = self.encoder(inputs_embeds=inputs_embeds)
+            hidden_states = enc_outputs[0]
+            decoder_outputs = self.decoder(input_ids=decoder_input_ids, encoder_hidden_states=hidden_states)
+
+        lm_logits = self.lm_head(decoder_outputs[0])  # batch, decseqlen, dim
+        ner_logits_cls = enc_outputs[0]  # batch, encseqlen, dim
+        ner_logits = self.summary(ner_logits_cls).squeeze(-1)
+        output_dict['ner_logits'] = ner_logits
+
+        masked_lm_loss = None
+        if labels is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-100)
+            masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
+            output_dict['loss'] = masked_lm_loss
+
+        ner_loss = None
+        if ner_labels is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-1)
+            ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
+            predictions = torch.argmax(ner_logits, dim=2)
+            ner_acc = 0
+            true_predictions = [
+                [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
+                for prediction, label in zip(predictions, ner_labels)
+            ]
+            true_labels = [
+                [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
+                for prediction, label in zip(predictions, ner_labels)
+            ]
+            results = self.metric.compute(predictions=true_predictions, references=true_labels)
+            ner_results = {
+          "precision": results["overall_precision"],
+          "recall": results["overall_recall"],
+          "f1": results["overall_f1"],
+          "accuracy": results["overall_accuracy"],
+      }
+
+            output_dict['logits'] = lm_logits
+            output_dict['ner_loss'] = ner_loss
+            output_dict['ner_results'] = ner_results
+
+        return output_dict
+
+
+#
+class T5EncDec_NER_explicit(T5ForConditionalGeneration):
+    _keys_to_ignore_on_load_missing = [
+        r"encoder.embed_tokens.weight",
+        r"decoder.embed_tokens.weight",
+        r"lm_head.weight",
+    ]
+    _keys_to_ignore_on_load_unexpected = [
+        r"decoder.block.0.layer.1.EncDecAttention.relative_attention_bias.weight",
+    ]
+    def __init__(self, config):
+        super().__init__(config)
+        self.summary = Summary(emb_dim=config.d_model)
+        self.max_position = config.n_positions
+        self.metric = load_metric("seqeval")
+        self.init_weights()
+        self.id2label = {0:"O", 1:"B", 2:"I"}
+        self.pad_token_id = config.pad_token_id
+
+    def forward(
+            self,
+            input_ids=None,
+            inputs_embeds=None,
+            decoder_input_ids=None,
+            labels=None,
+            ner_labels=None
+            ):
+
+        output_dict = dict()
+
+        if inputs_embeds == None:
+            enc_outputs = self.encoder(input_ids=input_ids)
+            hidden_states = enc_outputs[0]
+            decoder_outputs = self.decoder(input_ids=decoder_input_ids, encoder_hidden_states=hidden_states)
+        else:
+            enc_outputs = self.encoder(inputs_embeds=inputs_embeds)
+            hidden_states = enc_outputs[0]
+            decoder_outputs = self.decoder(input_ids=decoder_input_ids, encoder_hidden_states=hidden_states)
+
+        ner_logits_cls = enc_outputs[0]  # batch, encseqlen, dim
+        ner_logits = self.summary(ner_logits_cls).squeeze(-1)
+        output_dict['ner_logits'] = ner_logits
+
+        softmax = Softmax(dim=-1)
+        softmax_result, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
+
+        result_true = (top_ner_result == 1) + (top_ner_result == 2)
+
+        dec_input_pad_mask = torch.ne(decoder_input_ids, self.pad_token_id)
+        dec_input_wo_pad = [r[m] for r, m in zip(decoder_input_ids, dec_input_pad_mask)]
+        lm_labels_wo_pad = [r[m] for r, m in zip(labels, dec_input_pad_mask)]
+
+        new_dec_inputs = []
+        new_lm_labels = []
+        for batch_idx, batch in enumerate(result_true):
+            chosen_tok_list = []
+            for item_idx, item in enumerate(batch):
+                if item == True:
+                    chosen_tok_list.append(input_ids[batch_idx][item_idx])
+            chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list
+            chosen_tok_tensor = torch.stack(chosen_tok_list, 0)
+            chosen_tok_tensor_mask = (chosen_tok_tensor!=1).nonzero()
+            chosen_tok_tensor = chosen_tok_tensor[chosen_tok_tensor_mask].squeeze(-1)[:512]
+
+            new_dec_input = torch.cat([chosen_tok_tensor, dec_input_wo_pad[batch_idx]])
+            new_lm_label = torch.cat([torch.tensor([-100]).repeat(chosen_tok_tensor.size()).to(input_ids.device), lm_labels_wo_pad[batch_idx]])
+            pad_len = self.max_position - new_dec_input.size()[0]
+
+            new_dec_input = torch.cat([new_dec_input, torch.tensor([1]).repeat(pad_len).to(input_ids.device)])
+            new_lm_label = torch.cat([new_lm_label, torch.tensor([-100]).repeat(pad_len).to(input_ids.device)])
+
+            new_dec_inputs.append(new_dec_input)
+            new_lm_labels.append(new_lm_label)
+
+        new_dec_inputs = torch.stack(new_dec_inputs, 0)
+        new_lm_labels = torch.stack(new_lm_labels, 0)
+
+        if inputs_embeds == None:
+            enc_outputs = self.encoder(input_ids=input_ids)
+            hidden_states = enc_outputs[0]
+            decoder_outputs = self.decoder(input_ids=new_dec_inputs, encoder_hidden_states=hidden_states)
+        else:
+            enc_outputs = self.encoder(inputs_embeds=inputs_embeds)
+            hidden_states = enc_outputs[0]
+            decoder_outputs = self.decoder(input_ids=new_dec_inputs, encoder_hidden_states=hidden_states)
+
+        lm_logits = self.lm_head(decoder_outputs[0]) # batch, decseqlen, dim
+        output_dict['logits'] = lm_logits
+
+
+        masked_lm_loss = None
+        if new_lm_labels is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-100)
+            masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), new_lm_labels.view(-1))
+            output_dict['loss'] = masked_lm_loss
+
+
+        ner_loss = None
+        if ner_labels is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-1)
+            # cls_loss = loss_fct(cls_logits, cls_labels.type_as(cls_logits))
+            ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
+            predictions = torch.argmax(ner_logits, dim=2)
+            ner_acc = 0
+            true_predictions = [
+                [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
+                for prediction, label in zip(predictions, ner_labels)
+            ]
+            true_labels = [
+                [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
+                for prediction, label in zip(predictions, ner_labels)
+            ]
+            results = self.metric.compute(predictions=true_predictions, references=true_labels)
+            ner_results = {
+          "precision": results["overall_precision"],
+          "recall": results["overall_recall"],
+          "f1": results["overall_f1"],
+          "accuracy": results["overall_accuracy"],
+      }
+
+            output_dict['ner_loss'] = ner_loss
+            output_dict['ner_results'] = ner_results
+
+        return output_dict
+
 
 
 def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
@@ -550,7 +755,6 @@ class BartEncDec_NER_implicit(BartForConditionalGeneration):
         self.init_weights()
         self.id2label = {0:"O", 1:"B", 2:"I"}
         self.pad_token_id = config.pad_token_id
-        self.max_len = config.max_position_embeddings
         self.model = BartModel_implicit(config)
 
     def forward(

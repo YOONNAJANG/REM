@@ -50,8 +50,14 @@ def add_special_tokens_test(model, congen_model, tokenizer, special_tokens):
 
 
 def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
-    bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
-    dec_bos = 2  # tokenizer.decoder_start_token_id
+    if 'bart' in tokenizer.name_or_path:
+        bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
+        dec_bos = 2  # tokenizer.decoder_start_token_id
+        gold_knowledge = golden_knowledge
+    else:
+        bos, dec_bos, eos = tokenizer.eos_token_id, tokenizer.eos_token_id, tokenizer.eos_token_id
+        gold_knowledge = golden_knowledge[1:]
+
     # input_ids = [bos] + gt_knowledge + [eos] + corrputed[0] + [eos]
     # machine_st = tokenizer.convert_tokens_to_ids(tokenizer.machine_token)
     human_st = tokenizer.convert_tokens_to_ids(tokenizer.human_token)
@@ -60,7 +66,6 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
 
     history_, reply = history[:-1], history[-1]
 
-    gold_knowledge = golden_knowledge  # bos 포함
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     history_ = [human_st] + history_[0]
@@ -91,12 +96,17 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
 
 
 def build_input_wow(args, tokenizer, history, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
-    bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
-    dec_bos = 2  # tokenizer.decoder_start_token_id
+    if 'bart' in tokenizer.name_or_path:
+        bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
+        dec_bos = 2  # tokenizer.decoder_start_token_id
+        gold_knowledge = golden_knowledge
+    else:
+        bos, dec_bos, eos = tokenizer.eos_token_id, tokenizer.eos_token_id, tokenizer.eos_token_id
+        gold_knowledge = golden_knowledge[1:]
+
     human_st = tokenizer.convert_tokens_to_ids(tokenizer.human_token)
 
     history_, reply = history[:-1], history[-1]
-    gold_knowledge = golden_knowledge  # bos 포함
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     history_ = [human_st] + history_[0]
@@ -107,7 +117,6 @@ def build_input_wow(args, tokenizer, history, golden_knowledge, knowledge_ner_la
     enc_sequence.extend(history_)
     ner_label = knowledge_label
     # print(ner_label)
-    # breakpoint()
     # else:
     #     pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
     #     enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[
@@ -131,12 +140,17 @@ def build_input_wow(args, tokenizer, history, golden_knowledge, knowledge_ner_la
     return instance
 
 def build_input_chatgpt(args, tokenizer, history, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
-    bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
-    dec_bos = 2  # tokenizer.decoder_start_token_id
+    if 'bart' in tokenizer.name_or_path:
+        bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
+        dec_bos = 2  # tokenizer.decoder_start_token_id
+        gold_knowledge = golden_knowledge
+    else:
+        bos, dec_bos, eos = tokenizer.eos_token_id, tokenizer.eos_token_id, tokenizer.eos_token_id
+        gold_knowledge = golden_knowledge[1:]
+
     human_st = tokenizer.convert_tokens_to_ids(tokenizer.human_token)
 
     history_, reply = history[:-1], history[-1]
-    gold_knowledge = golden_knowledge  # bos 포함
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     history_ = [human_st] + history_[0]
@@ -147,7 +161,6 @@ def build_input_chatgpt(args, tokenizer, history, golden_knowledge, knowledge_ne
     enc_sequence.extend(history_)
     ner_label = knowledge_label
     # print(ner_label)
-    # breakpoint()
     # else:
     #     pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
     #     enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[
@@ -172,12 +185,16 @@ def build_input_chatgpt(args, tokenizer, history, golden_knowledge, knowledge_ne
 
 
 def build_input_cmudog(args, tokenizer, history, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
-    bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
-    dec_bos = 2  # tokenizer.decoder_start_token_id
+    if 'bart' in tokenizer.name_or_path:
+        bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
+        dec_bos = 2  # tokenizer.decoder_start_token_id
+        gold_knowledge = golden_knowledge
+    else:
+        bos, dec_bos, eos = tokenizer.eos_token_id, tokenizer.eos_token_id, tokenizer.eos_token_id
+        gold_knowledge = golden_knowledge[1:]
     human_st = tokenizer.convert_tokens_to_ids(tokenizer.human_token)
 
     history_, reply = history[:-1], history[-1]
-    gold_knowledge = golden_knowledge  # bos 포함
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     history_ = [human_st] + history_[0]
@@ -188,7 +205,6 @@ def build_input_cmudog(args, tokenizer, history, golden_knowledge, knowledge_ner
     enc_sequence.extend(history_)
     ner_label = knowledge_label
     # print(ner_label)
-    # breakpoint()
     # else:
     #     pseudo_token_id = tokenizer.get_vocab()[args.pseudo_token]
     #     enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[
@@ -254,6 +270,7 @@ def dataloader_focus(args, tokenizer):
     # print(datasets)
     for dataset_name, dataset in datasets.items():
         dataset = pad_dataset_focus(dataset, padding=tokenizer.pad_token_id)
+
         # print(dataset)
         for input_name in MODEL_INPUTS:
             tensor = torch.tensor(dataset[input_name])
@@ -337,7 +354,6 @@ def dataloader_wow(args, tokenizer):
             # persona = data['persona']
             utterance = data['utterance']
             # print(utterance)
-            # breakpoint()
             for i, utt in enumerate(utterance):
                 history = utt['dialog'][-(2 * args.max_history):]
                 # persona_cans = utt['persona_candidates']
@@ -817,8 +833,6 @@ def get_dataset_refine_wow_test(tokenizer, test_dataset_path, test_dataset_cache
                             pred = utt["output"][0]
                         else:
                             pred = utt["output"]
-                        # print(pred)
-                        # breakpoint()
                         dial[-2] = pred
 
                         dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in
@@ -1101,8 +1115,6 @@ def get_dataset_refine_wow(tokenizer, train_dataset_path, train_dataset_cache, d
                             pred = utt["output"][0]
                         else:
                             pred = utt["output"]
-                        # print(pred)
-                        # breakpoint()
                         dial[-2] = pred
 
                         dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in
@@ -1130,7 +1142,6 @@ def get_dataset_refine_wow(tokenizer, train_dataset_path, train_dataset_cache, d
 
             logger.info("Tokenize and encode the dataset")
             # print("**********############",ner_label_count)
-            # breakpoint()
             dataset = dataset_enc
             all_dataset[name] = dataset_enc[name]
             if name == 'train':
@@ -1231,8 +1242,6 @@ def get_dataset_refine_cmudog(tokenizer, train_dataset_path, train_dataset_cache
                             pred = utt["output"][0]
                         else:
                             pred = utt["output"]
-                        # print(pred)
-                        # breakpoint()
                         dial[-2] = pred
 
                         dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in
@@ -1260,7 +1269,6 @@ def get_dataset_refine_cmudog(tokenizer, train_dataset_path, train_dataset_cache
 
             logger.info("Tokenize and encode the dataset")
             # print("**********############",ner_label_count)
-            # breakpoint()
             dataset = dataset_enc
             all_dataset[name] = dataset_enc[name]
             if name == 'train':
@@ -1360,7 +1368,6 @@ def get_dataset_refine_cmudog_test(tokenizer, test_dataset_path, test_dataset_ca
                         else:
                             pred = utt["output"]
                         # print(pred)
-                        # breakpoint()
                         dial[-2] = pred
 
                         dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in

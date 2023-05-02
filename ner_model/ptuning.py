@@ -29,10 +29,10 @@ def init_focus_tokens_embedding(
         tokenizer: PreTrainedTokenizer
 ) -> None:
     target_words_to_init = {
-        '<machine>': [tokenizer.sep_token, 'machine\'s turn'],
-        '<human>': [tokenizer.sep_token, 'human\'s turn'],
-        '<persona>': [tokenizer.sep_token, 'human\'s persona'],
-        '<knowledge>': [tokenizer.sep_token, 'knowledge to answer'],
+        '<machine>': [tokenizer.eos_token, 'machine\'s turn'],
+        '<human>': [tokenizer.eos_token, 'human\'s turn'],
+        '<persona>': [tokenizer.eos_token, 'human\'s persona'],
+        '<knowledge>': [tokenizer.eos_token, 'knowledge to answer'],
     }
 
     with torch.no_grad():
@@ -48,8 +48,7 @@ def init_focus_tokens_embedding(
             )
 
         assert torch.equal(model.get_input_embeddings().weight, word_embeddings.weight)
-        assert torch.equal(model.get_input_embeddings().weight,
-                           model.get_output_embeddings().weight)
+        assert torch.equal(model.get_input_embeddings().weight, model.get_output_embeddings().weight)
 
 
 def init_vocab(args):
