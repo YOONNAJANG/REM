@@ -11,11 +11,11 @@
 #CUDA_VISIBLE_DEVICES=6 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --data_type cmudog --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/cmudog_wo_prompt_100 > logs/cmudog_wo_prompt_100.log &
 
 #T5 ner focus
-#CUDA_VISIBLE_DEVICES=7 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --pretrained_model t5-small --data_type focus --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/t5_wo_prompt_100 > logs/t5_wo_prompt_100.log &
+CUDA_VISIBLE_DEVICES=1 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --pretrained_model t5-small --data_type focus --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/t5_wo_prompt_100 > logs/t5_wo_prompt_100.log &
 #ner wow
-#CUDA_VISIBLE_DEVICES=6 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --pretrained_model t5-small --data_type wow --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/t5_wow_wo_prompt_100 > logs/t5_wow_wo_prompt_100.log &
+CUDA_VISIBLE_DEVICES=2 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --pretrained_model t5-small --data_type wow --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/t5_wow_wo_prompt_100 > logs/t5_wow_wo_prompt_100.log &
 #ner cmudog
-CUDA_VISIBLE_DEVICES=4 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --pretrained_model t5-small --data_type cmudog --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/t5_cmudog_wo_prompt_100 > logs/t5_cmudog_wo_prompt_100.log &
+CUDA_VISIBLE_DEVICES=3 nohup python train_refiner.py --ner_coef 0.5 --epochs 100 --pretrained_model t5-small --data_type cmudog --mode ner --output_dir /home/data/yoonna/Refiner/output/ner/t5_cmudog_wo_prompt_100 > logs/t5_cmudog_wo_prompt_100.log &
 
 
 ##gen

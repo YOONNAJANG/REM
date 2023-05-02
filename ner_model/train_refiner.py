@@ -154,7 +154,7 @@ class Model(LightningModule):
             'ner_labels':ner_labels
         }
         result = self.step(inputs, batch_idx)
-        lm_loss, ner_loss = result['lm_loss'], result['ner_loss']
+        lm_loss, ner_loss = result['loss'], result['ner_loss']
         total_loss = (lm_loss * self.hparams.lm_coef + ner_loss * self.hparams.ner_coef) / self.hparams.grad_accum
         self.log('train_loss', total_loss)
         self.log('train_lm_loss', lm_loss)
@@ -194,13 +194,13 @@ class Model(LightningModule):
                 result[k] = v.detach().cpu()
             else:
                 result[k] = v
-        self.log('valid_lm_loss', result['lm_loss'])
+        self.log('valid_lm_loss', result['loss'])
         self.log('valid_ner_loss', result['ner_loss'])
         self.log('valid_ner_acc', result["ner_results"]["accuracy"])
         self.log('valid_ner_f1', result["ner_results"]["f1"])
         self.log('valid_ner_recall', result["ner_results"]["recall"])
         self.log('valid_ner_precision', result["ner_results"]["precision"])
-        wandb.log({'valid_lm_loss': result['lm_loss']})
+        wandb.log({'valid_lm_loss': result['loss']})
         wandb.log({'valid_ner_loss': result['ner_loss']})
         wandb.log({'valid_ner_acc': result["ner_results"]["accuracy"]})
         wandb.log({'valid_ner_f1': result["ner_results"]["f1"]})
@@ -219,9 +219,9 @@ class Model(LightningModule):
             ner_f1 = torch.tensor(0, dtype=torch.float).to(self.hparams.device)
 
             for i in outputs:
-                lm_loss += i['lm_loss']
+                lm_loss += i['loss']
                 cls_loss += i['ner_loss']
-                ppl += torch.exp(i['lm_loss'])
+                ppl += torch.exp(i['loss'])
                 ner_acc += i["ner_results"]["accuracy"]
                 ner_f1 += i["ner_results"]["f1"]
 
@@ -317,7 +317,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
     parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--valid_batch_size", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--lr", type=float, default=6.25e-5)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--random_seed", type=int, default=644128)
