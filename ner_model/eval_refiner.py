@@ -765,6 +765,8 @@ def main():
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
     parser.add_argument("--do_sample", type=bool, default=True)
+    parser.add_argument("--knowledge_select", type=str, default="None", help="{None, DPR, BM25, TFIDF}")
+
 
     #for p-tuning
     parser.add_argument("--ptuning", type=bool, default=False)

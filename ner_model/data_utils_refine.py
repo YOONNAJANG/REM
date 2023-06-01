@@ -88,10 +88,15 @@ def build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
     dec_sequence = [dec_bos] + reply + [eos]
 
     instance = dict()
-    instance['input_ids'] = enc_sequence  # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+    if 'bart' in tokenizer.name_or_path:
+        instance['input_ids'] = enc_sequence  # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+        instance['ner_labels'] = ner_label
+    else:
+        instance['input_ids'] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: ')) + enc_sequence[1:]
+        instance['ner_labels'] = len(tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: '))) * [-1] + ner_label[1:]
+
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
-    instance['ner_labels'] = ner_label
     return instance
 
 
@@ -131,11 +136,17 @@ def build_input_wow(args, tokenizer, history, golden_knowledge, knowledge_ner_la
     # print()
     ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
     instance = dict()
-    instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+
+    if 'bart' in tokenizer.name_or_path:
+        instance['input_ids'] = enc_sequence  # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+        instance['ner_labels'] = ner_label
+    else:
+        instance['input_ids'] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: ')) + enc_sequence[1:]
+        instance['ner_labels'] = len(tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: '))) * [-1] + ner_label[1:]
+
     # instance['input_ids'] = list(chain(*enc_sequence))
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
-    instance['ner_labels'] = ner_label
     # print(instance)
     return instance
 
@@ -175,11 +186,15 @@ def build_input_chatgpt(args, tokenizer, history, golden_knowledge, knowledge_ne
     # print()
     ###### # special_tokens_focus = {'machine_token':50265, 'human_token':50266, 'persona_token':50267, 'knowledge_token':50268}
     instance = dict()
-    instance['input_ids'] = enc_sequence # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
-    # instance['input_ids'] = list(chain(*enc_sequence))
+    if 'bart' in tokenizer.name_or_path:
+        instance['input_ids'] = enc_sequence  # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+        instance['ner_labels'] = ner_label
+    else:
+        instance['input_ids'] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: ')) + enc_sequence[1:]
+        instance['ner_labels'] = len(tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: '))) * [-1] + ner_label[1:]    # instance['input_ids'] = list(chain(*enc_sequence))
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
-    instance['ner_labels'] = ner_label
+
     # print(instance)
     return instance
 

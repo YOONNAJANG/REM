@@ -12,7 +12,6 @@ from itertools import chain
 print(os.getcwd())
 import wandb
 import torch
-torch.set_num_threads(4)
 from torch.optim.lr_scheduler import LambdaLR, ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
@@ -28,7 +27,8 @@ from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, i
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog, dataloader_multi
 # dataloader_cmudog
 
-
+os.environ["OMP_NUM_THREADS"] = "20"
+torch.set_num_threads(16)
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
 
@@ -315,9 +315,9 @@ def main():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base, t5-small
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
-    parser.add_argument("--train_batch_size", type=int, default=8)
-    parser.add_argument("--valid_batch_size", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=6.25e-5)
+    parser.add_argument("--train_batch_size", type=int, default=16)
+    parser.add_argument("--valid_batch_size", type=int, default=8)
+    parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--random_seed", type=int, default=644128)
@@ -325,7 +325,7 @@ def main():
     parser.add_argument("--ner_coef", type=float, default=1.0, help="Coefficient for NER loss")
     parser.add_argument("--optimizer", type=str, default="AdamW", help="{AdamW, AdamP}")
     parser.add_argument("--lr_scheduler", type=str, default="lambdalr", help="{exp, lambdalr}")
-    parser.add_argument("--grad_accum", type=int, default=32, help="Accumulate gradients on several steps")
+    parser.add_argument("--grad_accum", type=int, default=16, help="Accumulate gradients on several steps")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
     parser.add_argument("--precision", type=int, default=32, help="{16,32,64}")
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
@@ -357,10 +357,12 @@ def main():
     model.eval()
     model.to(args['device'])
 
+    monitor = 'valid_ner_loss' if args['mode']=='ner' else 'valid_lm_loss'
+
     checkpoint_callback = ModelCheckpoint(
         dirpath=args['output_dir'],
-        filename='epoch{epoch}-valid_lm_loss{valid_lm_loss:.4f}',
-        monitor='valid_lm_loss',
+        filename='epoch{epoch}-{monitor}{valid_lm_loss:.4f}',
+        monitor=monitor,
         save_top_k=3,
         mode='min',
         auto_insert_metric_name=False,
