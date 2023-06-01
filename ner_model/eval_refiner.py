@@ -11,6 +11,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
+# from pytorch_lightning.strategies import DDPStrategy
 from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test, dataloader_chatgpt_test
 from datasets import load_metric
 import re
@@ -45,6 +46,20 @@ class Model(LightningModule):
         self.metric = load_metric("seqeval")
 
         self.pseudo_token = self.hparams.pseudo_token
+        
+        
+        print("Load DAE model weights")
+        from transformers import ElectraConfig, ElectraTokenizer
+        from metrics.dae_factuality.utils import ElectraDAEModel
+        dae_config_class, dae_model_class, dae_tokenizer_class = ElectraConfig, ElectraDAEModel, ElectraTokenizer
+        self.dae_tokenizer = dae_tokenizer_class.from_pretrained(self.hparams.dae_model)
+        self.dae_model = dae_model_class.from_pretrained(self.hparams.dae_model)
+        self.dae_model.to(self.hparams.device)
+        
+        
+        # ROUGE
+        self.rouge_metric = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+        
 
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
         from transformers import BartForConditionalGeneration
@@ -181,93 +196,166 @@ class Model(LightningModule):
         }
         results = self.step(inputs, batch_idx)
         # print(results.items()) # ner_logits, ner_loss, lm_logits, lm_loss, ner_results
+        
+        
+        # refine 할지말지 결정 ####################################################################################################
+        input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
 
-        if self.hparams.mode == "original":
-            lm_logits = results['logits']
-            ppl = torch.exp(results["loss"])
+        knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+        knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
+        if self.hparams.data_type == "focus":
 
-            with torch.no_grad():
-                out_ids = self.congenmodel.generate(input_ids=input_ids,
-                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
-                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
-                                              min_length=self.min_length, max_length=self.max_length)
-            ner_result = None
+            persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
+            persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
 
+            knowledge = input_ids[:, knoweldge_sp_idx + 1:persona_sp_idx]
+            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
         else:
+            human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
+            human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
 
-            lm_logits, ner_logits = results['lm_logits'], results['ner_logits']
-            ppl = torch.exp(results["lm_loss"])
+            knowledge = input_ids[:, knoweldge_sp_idx + 1:human_sp_idx]
 
-            result = {}
-            for k, v in results.items():
-                if k != "ner_results":
-                    result[k] = v.detach().cpu()
-                else:
-                    result[k] = v
-            predictions = torch.argmax(ner_logits, dim=-1)
-            pred_all = (predictions == 1) + (predictions == 2)
+            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
+        
+        
+        before_refine = input_text[0].split("<human>")[-1]
+        
+        # ROUGE-L
+        input_kg_rougeL = self.rouge_metric.score(before_refine, knowledge)['rougeL'].fmeasure
+        
+        # DAE
+        clean_before_refine = re.sub("[^\w|\s]", "", before_refine, 0, re.IGNORECASE)
+        clean_before_refine = clean_before_refine.strip()
+        
+        clean_knowledge = re.sub("[^\w|\s}]", "", knowledge, 0, re.IGNORECASE)
+        clean_knowledge = clean_knowledge.strip()
+        
+        clean_knowledge = self.dae_tokenizer.decode(self.dae_tokenizer(clean_knowledge)['input_ids'][:120-len(self.dae_tokenizer(clean_before_refine)['input_ids'])], skip_special_tokens=True)
+        if len(clean_before_refine) == 0:
+            input_kg_dae = 0
+        else:
+            input_kg_dae = score_example_single_context(clean_before_refine, clean_knowledge, self.dae_model, self.dae_tokenizer, self.hparams)
+        input_kg_dae = float(input_kg_dae)
+        
+
+        ## ROUGE-L과 DAE로 refine 할지말지 결정
+        if input_kg_dae < 0.5:
+            is_refine = True
+        else:
+            is_refine = False
+        
+        
+        # print("before_refine:", before_refine)
+        # print("knowledge:", knowledge)
+        # print("input_kg_rougeL:", input_kg_rougeL)
+        # print("input_kg_dae:", input_kg_dae)
+        # print()
+        
+        ########################################################################################################################
+        
+        if is_refine is False:
+            ppl = torch.exp(results["loss"])
+            
+            out_ids = self.tokenizer([before_refine])['input_ids']
+            out_ids = torch.cuda.IntTensor(out_ids)
+            
+            # refine 하지 않을 때 ner_results
+            ner_results = None
+        else:
+            if self.hparams.mode == "original":
+                lm_logits = results['logits']
+                ppl = torch.exp(results["loss"])
+
+                with torch.no_grad():
+                    out_ids = self.congenmodel.generate(input_ids=input_ids,
+                                                do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                                top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                                min_length=self.min_length, max_length=self.max_length)
+                ner_result = None
+
+            else:
+                # print(results.keys())
+                lm_logits, ner_logits = results['logits'], results['ner_logits']
+                ppl = torch.exp(results["loss"])
+
+                result = {}
+                for k, v in results.items():
+                    if k != "ner_results":
+                        result[k] = v.detach().cpu()
+                    else:
+                        result[k] = v
+                predictions = torch.argmax(ner_logits, dim=-1)
+                pred_all = (predictions == 1) + (predictions == 2)
+
+                if self.hparams.mode == "gen_exp":
+
+                    chosen_tok_list = []
+                    for batch_index, batch_item in enumerate(pred_all):
+                        for item_idx, item in enumerate(batch_item):
+                            if item == True:
+                                chosen_tok_list.append(input_ids[batch_index][item_idx])
+                        chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list + [torch.tensor(2).to(input_ids.device)]
+                        new_dec_input = torch.stack(chosen_tok_list, 0).unsqueeze(0)
+
+                true_predictions = [
+                    [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
+                    for prediction, label in zip(predictions, ner_labels)
+                ]
+                true_labels = [
+                    [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
+                    for prediction, label in zip(predictions, ner_labels)
+                ]
+
+                results = self.metric.compute(predictions=true_predictions, references=true_labels)
+                ner_results = {
+                    "precision": results["overall_precision"],
+                    "recall": results["overall_recall"],
+                    "f1": results["overall_f1"],
+                    "accuracy": results["overall_accuracy"]}
+
+
+
 
             if self.hparams.mode == "gen_exp":
+                with torch.no_grad():
+                    out_ids = self.congenmodel.generate(input_ids=input_ids, decoder_input_ids=new_dec_input,
+                                                do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                                top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                                min_length=self.min_length, max_length=self.max_length)
 
-                chosen_tok_list = []
-                for batch_index, batch_item in enumerate(pred_all):
-                    for item_idx, item in enumerate(batch_item):
-                        if item == True:
-                            chosen_tok_list.append(input_ids[batch_index][item_idx])
-                    chosen_tok_list = [torch.tensor(2).to(input_ids.device)] + chosen_tok_list + [torch.tensor(2).to(input_ids.device)]
-                    new_dec_input = torch.stack(chosen_tok_list, 0).unsqueeze(0)
+                if self.num_return_sequences > 1:
+                    new_out_ids = []
+                    for out_id in out_ids:
+                        output_index = (out_id == 2).nonzero(as_tuple=True)[0][1].item()
+                        new_out_ids.append(out_id[output_index:])
+                    out_ids = torch.stack(new_out_ids, 0)
+                else:
+                    output_index = (out_ids[0] == 2).nonzero(as_tuple=True)[0][1].item()
+                    out_ids = out_ids[0][output_index:].unsqueeze(0)
 
-            true_predictions = [
-                [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
-                for prediction, label in zip(predictions, ner_labels)
-            ]
-            true_labels = [
-                [self.id2label[l.item()] for (p, l) in zip(prediction, label) if l != -1]
-                for prediction, label in zip(predictions, ner_labels)
-            ]
+            elif self.hparams.mode == "gen_imp":
+                with torch.no_grad():
+                    out_ids = self.congenmodel.generate(input_ids=input_ids,
+                                                do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                                top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                                min_length=self.min_length, max_length=self.max_length)
 
-            results = self.metric.compute(predictions=true_predictions, references=true_labels)
-            ner_results = {
-                "precision": results["overall_precision"],
-                "recall": results["overall_recall"],
-                "f1": results["overall_f1"],
-                "accuracy": results["overall_accuracy"]}
 
-        if self.hparams.mode == "gen_exp":
-            with torch.no_grad():
-                out_ids = self.congenmodel.generate(input_ids=input_ids, decoder_input_ids=new_dec_input,
-                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
-                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
-                                              min_length=self.min_length, max_length=self.max_length)
+            elif self.hparams.mode == "ner":
+                with torch.no_grad():
+                    out_ids = self.congenmodel.generate(input_ids=input_ids,
+                                                do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
+                                                top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
+                                                min_length=self.min_length, max_length=self.max_length)
 
-            if self.num_return_sequences > 1:
-                new_out_ids = []
-                for out_id in out_ids:
-                    output_index = (out_id == 2).nonzero(as_tuple=True)[0][1].item()
-                    new_out_ids.append(out_id[output_index:])
-                out_ids = torch.stack(new_out_ids, 0)
             else:
-                output_index = (out_ids[0] == 2).nonzero(as_tuple=True)[0][1].item()
-                out_ids = out_ids[0][output_index:].unsqueeze(0)
-
-        elif self.hparams.mode == "gen_imp":
-            with torch.no_grad():
-                out_ids = self.congenmodel.generate(input_ids=input_ids,
-                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
-                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
-                                              min_length=self.min_length, max_length=self.max_length)
-
-
-        elif self.hparams.mode == "ner":
-            with torch.no_grad():
-                out_ids = self.congenmodel.generate(input_ids=input_ids,
-                                              do_sample=self.do_sample, num_beams=self.num_beams, num_return_sequences=self.num_return_sequences,
-                                              top_k=self.top_k, no_repeat_ngram_size=self.no_repeat_ngram_size,
-                                              min_length=self.min_length, max_length=self.max_length)
-
-        else:
-            raise NotImplementedError
-
+                raise NotImplementedError
+        
+        
+        
+        
+        
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
         out_ids = out_ids[:, :self.hparams.max_length]
@@ -328,14 +416,6 @@ class Model(LightningModule):
     def test_epoch_end(self, outputs):
         result = self.epoch_end(outputs, state='test')
 
-        print("Load DAE model weights")
-        from transformers import ElectraConfig, ElectraTokenizer
-        from metrics.dae_factuality.utils import ElectraDAEModel
-        dae_config_class, dae_model_class, dae_tokenizer_class = ElectraConfig, ElectraDAEModel, ElectraTokenizer
-        dae_tokenizer = dae_tokenizer_class.from_pretrained(self.hparams.dae_model)
-        dae_model = dae_model_class.from_pretrained(self.hparams.dae_model)
-        dae_model.to(self.hparams.device)
-
         print("Load NER tagger")
         from flair.data import Sentence
         from flair.models import SequenceTagger
@@ -358,7 +438,6 @@ class Model(LightningModule):
         tc = 0
         ec = 0
         k_bleu = 0
-        rouge_metric = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
         bleu_metric = load_metric("sacrebleu")
         chrf_metric = CHRFScore()
 
@@ -391,12 +470,12 @@ class Model(LightningModule):
             # ROUGE
             if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
-                    r = rouge_metric.score(pred_reply_item, gold_reply)
+                    r = self.rouge_metric.score(pred_reply_item, gold_reply)
                     r1 += r['rouge1'].fmeasure
                     r2 += r['rouge2'].fmeasure
                     rl += r['rougeL'].fmeasure
             else:
-                r = rouge_metric.score(pred_reply[0], gold_reply)
+                r = self.rouge_metric.score(pred_reply[0], gold_reply)
                 r1 += r['rouge1'].fmeasure
                 r2 += r['rouge2'].fmeasure
                 rl += r['rougeL'].fmeasure
@@ -436,7 +515,7 @@ class Model(LightningModule):
                     if len(pred_reply_wo_specialchar) == 0:
                         dae += 0
                     else:
-                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge_wo_specialchar, dae_model, dae_tokenizer,
+                        dae += score_example_single_context(pred_reply_wo_specialchar, knowledge_wo_specialchar, self.dae_model, self.dae_tokenizer,
                                                         self.hparams)
 
             else:
@@ -448,7 +527,7 @@ class Model(LightningModule):
                 if len(pred_reply_wo_specialchar) == 0 :
                     dae += 0
                 else:
-                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer, self.hparams)
+                    dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, self.dae_model, self.dae_tokenizer, self.hparams)
             # print('dae_score', dae)
 
             # print('distN')
@@ -554,7 +633,7 @@ class Model(LightningModule):
             #         if len(pred_reply_wo_specialchar) == 0:
             #             dae += 0
             #         else:
-            #             dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+            #             dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, self.dae_model, self.dae_tokenizer,
             #                                             self.hparams)
             # else:
             #     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
@@ -562,7 +641,7 @@ class Model(LightningModule):
             #     if len(pred_reply_wo_specialchar) == 0 :
             #         dae += 0
             #     else:
-            #         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, dae_model, dae_tokenizer,
+            #         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, self.dae_model, self.dae_tokenizer,
             #                                         self.hparams)
             # # print('dae_score', dae)
             #
