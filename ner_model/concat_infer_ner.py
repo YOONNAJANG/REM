@@ -22,7 +22,7 @@ with open(f"/home/data/leejeongwoo/projects/focus/Refiner/baselines/cmudog/outpu
 
 
 c = 0
-d=0
+d = 0
 for i in ner_data["data"]:
     new_utt = []
     for u_i, each_turn in enumerate(i["utterance"]):
@@ -43,3 +43,5 @@ print(len(ner_data["data"]))
 print(len(infer_data["text_result"]))
 print(c)
 print(d)
+
+

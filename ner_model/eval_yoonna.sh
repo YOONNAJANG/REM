@@ -1,5 +1,5 @@
-###full shots###
-#wo_prompt_100
+
+#focus bart base gex_exp
 #CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type focus --checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch6-valid_lm_loss1.4768.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ --flag output_b10 --num_beams 10 > eval_logs/wo_prompt_100_b10.log &
 #CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type focus --checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch6-valid_lm_loss1.4768.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ --flag output_b5 --num_beams 5 > eval_logs/wo_prompt_100_b5.log &
 #CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type focus --checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch6-valid_lm_loss1.4768.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ --flag output_b1 > eval_logs/wo_prompt_100_b1.log &
@@ -13,28 +13,11 @@
 #CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type focus --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
 #--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
 #--num_beams 1 --flag focus_gen_exp_refine_b1 > eval_logs/focus_gen_exp_refine_b1.out &
-#
-##b2
-#CUDA_VISIBLE_DEVICES=3 nohup python eval_refiner.py --data_type focus --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 2 --flag focus_gen_exp_refine_b2 > eval_logs/focus_gen_exp_refine_b2.out &
-#
 ##b5
 #CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
 #--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
 #--num_beams 5 --flag focus_gen_exp_refine_b5 > eval_logs/focus_gen_exp_refine_b5.out &
 #
-##top5
-#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type focus --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 1 --top_k 5 --flag focus_gen_exp_refine_top5 > eval_logs/focus_gen_exp_refine_top5.out &
-#
-##top10
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 1 --top_k 10 --flag focus_gen_exp_refine_top10 > eval_logs/focus_gen_exp_refine_top10.out &
-
-
 
 #woner
 #RUNNING
@@ -68,137 +51,25 @@
 
 
 
-###T5 focus
+###T5 base ner focus
 ##b10
-#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --pretrained_model t5-small --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/epoch7-valid_lm_loss1.9807.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --pretrained_model t5-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/t5_wo_prompt_100/epoch99-valid_lm_loss4.6940.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/t5_wo_prompt_100/ \
 #--num_beams 10 --flag t5_focus_gen_exp_refine_b10 > eval_logs/t5_focus_gen_exp_refine_b10.out &
 
 ##b1
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model t5-small --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
+#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model t5-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
 #--checkpoint /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/epoch7-valid_lm_loss1.9807.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/ \
 #--num_beams 1 --flag t5_focus_gen_exp_refine_b1 > eval_logs/t5_focus_gen_exp_refine_b1.out &
 
-##b2
-#CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --pretrained_model t5-small --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
+##b5
+#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --pretrained_model t5-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
 #--checkpoint /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/epoch7-valid_lm_loss1.9807.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/ \
-#--num_beams 2 --flag t5_focus_gen_exp_refine_b2 > eval_logs/t5_focus_gen_exp_refine_b2.out &
-
-##b5
-CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --pretrained_model t5-small --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
---checkpoint /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/epoch7-valid_lm_loss1.9807.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/ \
---num_beams 5 --flag t5_focus_gen_exp_refine_b5 > eval_logs/t5_focus_gen_exp_refine_b5.out &
-
-##top5
-CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model t5-small --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
---checkpoint /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/epoch7-valid_lm_loss1.9807.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/ \
---num_beams 1 --top_k 5 --flag t5_focus_gen_exp_refine_top5 > eval_logs/t5_focus_gen_exp_refine_top5.out &
-
-##top10
-CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --pretrained_model t5-small --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
---checkpoint /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/epoch7-valid_lm_loss1.9807.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/t5_wo_prompt_100/ \
---num_beams 1 --top_k 10 --flag t5_focus_gen_exp_refine_top10 > eval_logs/t5_focus_gen_exp_refine_top10.out &
+#--num_beams 5 --flag t5_focus_gen_exp_refine_b5 > eval_logs/t5_focus_gen_exp_refine_b5.out &
 
 
 
 
-
-
-#####CHATGPT#####
-#gen_exp
-#focus chatgpt
-###b10
-#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 10 --flag focus_chatgpt_gen_exp_refine_b10 > eval_logs/focus_chatgpt_refine_b10.out &
-#
-###b1
-#CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 1 --flag focus_chatgpt_gen_exp_refine_b1 > eval_logs/focus_chatgpt_refine_b1.out &
-#
-###b2
-#CUDA_VISIBLE_DEVICES=3 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 2 --flag focus_chatgpt_gen_exp_refine_b2 > eval_logs/focus_chatgpt_refine_b2.out &
-#
-###b5
-#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 5 --flag focus_chatgpt_gen_exp_refine_b5 > eval_logs/focus_chatgpt_refine_b5.out &
-#
-###top5
-#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 1 --top_k 5 --flag focus_chatgpt_gen_exp_refine_top5 > eval_logs/focus_chatgpt_refine_top5.out &
-#
-###top10
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/chatgpt_002_test_ours_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/epoch3-valid_lm_loss1.4651.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wo_prompt_100/ \
-#--num_beams 1 --top_k 10 --flag focus_chatgpt_gen_exp_refine_top10 > eval_logs/focus_chatgpt_refine_top10.out &
-
-
-#wow gen_exp chatgpt
-##b10
-#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/chatgpt_pretty_test_random_split_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/epoch3-valid_lm_loss2.6689.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/ \
-#--num_beams 10 --flag wow_chatgpt_gen_exp_refine_b10 > eval_logs/wow_chatgpt_gen_exp_refine_b10.out &
-#
-##b1
-#CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/chatgpt_pretty_test_random_split_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/epoch3-valid_lm_loss2.6689.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/ \
-#--num_beams 1 --flag wow_chatgpt_gen_exp_refine_b1 > eval_logs/wow_chatgpt_gen_exp_refine_b1.out &
-#
-##b2
-#CUDA_VISIBLE_DEVICES=3 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/chatgpt_pretty_test_random_split_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/epoch3-valid_lm_loss2.6689.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/ \
-#--num_beams 2 --flag wow_chatgpt_gen_exp_refine_b2 > eval_logs/wow_chatgpt_gen_exp_refine_b2.out &
-#
-##b5
-#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/chatgpt_pretty_test_random_split_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/epoch3-valid_lm_loss2.6689.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/ \
-#--num_beams 5 --flag wow_chatgpt_gen_exp_refine_b5 > eval_logs/wow_chatgpt_gen_exp_refine_b5.out &
-#
-##top5
-#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/chatgpt_pretty_test_random_split_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/epoch3-valid_lm_loss2.6689.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/ \
-#--num_beams 1 --top_k 5 --flag wow_chatgpt_gen_exp_refine_top5 > eval_logs/wow_chatgpt_gen_exp_refine_top5.out &
-#
-##top10
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/chatgpt_pretty_test_random_split_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/wow/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/epoch3-valid_lm_loss2.6689.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/wow_wo_prompt_100/ \
-#--num_beams 1 --top_k 10 --flag wow_chatgpt_gen_exp_refine_top10 > eval_logs/wow_chatgpt_gen_exp_refine_top10.out &
-
-##cmudog gen_exp chatgpt
-##b10
-#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/chatgpt_result_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/epoch2-valid_lm_loss3.4475.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/ \
-#--num_beams 10 --flag cmu_chatgpt_gen_exp_refine_b10 > eval_logs/cmu_chatgpt_gen_exp_refine_b10.out &
-
-##b1
-#CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/chatgpt_result_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/epoch2-valid_lm_loss3.4475.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/ \
-#--num_beams 1 --flag cmu_chatgpt_gen_exp_refine_b1 > eval_logs/cmu_chatgpt_gen_exp_refine_b1.out &
-#
-###b2
-#CUDA_VISIBLE_DEVICES=3 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/chatgpt_result_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/epoch2-valid_lm_loss3.4475.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/ \
-#--num_beams 2 --flag cmu_chatgpt_gen_exp_refine_b2 > eval_logs/cmu_chatgpt_gen_exp_refine_b2.out &
-#
-###b5
-#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/chatgpt_result_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/epoch2-valid_lm_loss3.4475.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/ \
-#--num_beams 5 --flag cmu_chatgpt_gen_exp_refine_b5 > eval_logs/cmu_chatgpt_gen_exp_refine_b5.out &
-#
-###top5
-#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/chatgpt_result_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/epoch2-valid_lm_loss3.4475.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/ \
-#--num_beams 1 --top_k 5 --flag cmu_chatgpt_gen_exp_refine_top5 > eval_logs/cmu_chatgpt_gen_exp_refine_top5.out &
-#
-###top10
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type chatgpt --mode gen_exp --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/chatgpt_result_for_inference.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/chatgpt/cmudog/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/epoch2-valid_lm_loss3.4475.ckpt --output_dir /home/data/yoonna/Refiner/output/gen_exp/cmudog_wo_prompt_100/ \
-#--num_beams 1 --top_k 10 --flag cmu_chatgpt_gen_exp_refine_top10 > eval_logs/cmu_chatgpt_gen_exp_refine_top10.out &
 
 
 

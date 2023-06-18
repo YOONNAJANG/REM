@@ -27,8 +27,8 @@ from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, i
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog, dataloader_multi
 # dataloader_cmudog
 
-os.environ["OMP_NUM_THREADS"] = "20"
-torch.set_num_threads(16)
+os.environ["OMP_NUM_THREADS"] = "8"
+torch.set_num_threads(4)
 
 MODEL_INPUTS = ["input_ids", "decoder_input_ids", "lm_labels", "ner_labels"]
 

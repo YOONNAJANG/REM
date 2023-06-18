@@ -147,7 +147,6 @@ def build_input_wow(args, tokenizer, history, golden_knowledge, knowledge_ner_la
     # instance['input_ids'] = list(chain(*enc_sequence))
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
-    # print(instance)
     return instance
 
 def build_input_chatgpt(args, tokenizer, history, golden_knowledge, knowledge_ner_label, template=(3,3,3)): #gk|p|history|u' -> u
@@ -239,6 +238,16 @@ def build_input_cmudog(args, tokenizer, history, golden_knowledge, knowledge_ner
     instance['decoder_input_ids'] = dec_sequence[:-1]
     instance['lm_labels'] = dec_sequence[1:]
     instance['ner_labels'] = ner_label
+
+    # instance = dict()
+    # if 'bart' in tokenizer.name_or_path:
+    #     instance['input_ids'] = enc_sequence  # [bos] [knoweldge token] gk [persona token] ps [human token] history(last)
+    #     instance['ner_labels'] = ner_label
+    # else:
+    #     instance['input_ids'] = tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: ')) + enc_sequence[1:]
+    #     instance['ner_labels'] = len(tokenizer.convert_tokens_to_ids(tokenizer.tokenize('Rewrite the utterance considering the knowledge: '))) * [-1] + ner_label[1:]    # instance['input_ids'] = list(chain(*enc_sequence))
+    # instance['decoder_input_ids'] = dec_sequence[:-1]
+    # instance['lm_labels'] = dec_sequence[1:]
     # print(instance)
     return instance
 
@@ -277,8 +286,9 @@ def dataloader_focus(args, tokenizer, multi=False):
                 instance = build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
     if multi:
         return datasets
     print("Pad inputs and convert to Tensor")
@@ -326,8 +336,8 @@ def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache,
                 instance = build_input_focus(args, tokenizer, history, persona_cans, persona_ner_label,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
     if multi:
         return datasets
     print("Pad inputs and convert to Tensor")
@@ -349,10 +359,14 @@ def dataloader_focus_test(args, tokenizer,test_dataset_path, test_dataset_cache,
 ################################################################################################################
 def dataloader_wow(args, tokenizer, multi=False):
 
-    train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/train.json"
-    train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/our_train_cache.tar.gz"
-    dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/valid_random_split.json"
-    dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/our_dev_cache.tar.gz"
+    # train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/train.json"
+    # train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/our_train_cache.tar.gz"
+    # dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/valid_random_split.json"
+    # dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/our_dev_cache.tar.gz"
+    train_dataset_path = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/train_beam5_09k_B_B_with_ner.json"
+    dev_dataset_path = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/valid_random_split_beam5_09k_B_B_with_ner.json"
+    train_dataset_cache = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/train_cache.tar.gz"
+    dev_dataset_cache = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/valid_cache.tar.gz"
 
     regen_data = get_dataset_refine_wow(tokenizer, train_dataset_path=train_dataset_path,
                                     train_dataset_cache=train_dataset_cache,
@@ -383,8 +397,8 @@ def dataloader_wow(args, tokenizer, multi=False):
                 instance = build_input_wow(args, tokenizer, history,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
     if multi:
         return datasets
     print("Pad inputs and convert to Tensor")
@@ -437,9 +451,6 @@ def dataloader_multi(args, tokenizer, data_list):
     datasets["train"]["lm_labels"] = lm_labels
     datasets["train"]["ner_labels"] = ner_labels
 
-        # total_tensor_datasets["train"].extend(tmp_dataset["train"])
-
-        # breakpoint()
 
     #
     # # print(datasets)
@@ -495,8 +506,8 @@ def dataloader_cmudog(args, tokenizer, multi = False):
                 instance = build_input_cmudog(args, tokenizer, history,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
     if multi:
         return datasets
     print("Pad inputs and convert to Tensor")
@@ -532,6 +543,7 @@ def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache, 
             # dialogID = data['dialogID']
             # persona = data['persona']
             utterance = data['utterance']
+
             for i, utt in enumerate(utterance):
                 history = utt['dialog'][-(2 * args.max_history):]
                 # persona_cans = utt['persona_candidates']
@@ -543,10 +555,12 @@ def dataloader_wow_test(args, tokenizer, test_dataset_path, test_dataset_cache, 
                 instance = build_input_wow(args, tokenizer, history,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
     if multi:
         return datasets
+
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"test": []}
     # print(datasets)
@@ -591,8 +605,8 @@ def dataloader_chatgpt_test(args, tokenizer, test_dataset_path, test_dataset_cac
                 instance = build_input_chatgpt(args, tokenizer, history,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
 
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"test": []}
@@ -638,8 +652,8 @@ def dataloader_cmudog_test(args, tokenizer, test_dataset_path, test_dataset_cach
                 instance = build_input_cmudog(args, tokenizer, history,
                                              golden_knowledge,
                                              knowledge_ner_label, template)
-            for input_name, input_array in instance.items():
-                datasets[key][input_name].append(input_array)
+                for input_name, input_array in instance.items():
+                    datasets[key][input_name].append(input_array)
 
     print("Pad inputs and convert to Tensor")
     tensor_datasets = {"test": []}
@@ -706,7 +720,7 @@ def get_dataset_refine_focus_test(tokenizer, test_dataset_path, test_dataset_cac
                 dataset_enc[name] = list()
                 for dialogue in dataset:
                     ID = dialogue["dialogID"]
-                    persona = dialogue["persona"]
+                    # persona = dialogue["persona"]
                     # knowledge = dialogue["knowledge"]
                     utterance = dialogue["utterance"]
                     new_dialogue = dict()
@@ -715,15 +729,23 @@ def get_dataset_refine_focus_test(tokenizer, test_dataset_path, test_dataset_cac
                         key = "dialogue" + str(i + 1)
                         dial = utt[key]
                         dial_new = dict()
-                        persona_can = utt["persona_candidate"]
-                        persona_ground = utt["persona_grounding"]
-                        knowledge_can = utt["knowledge_candidates"]
-                        knowledge_answer = utt["knowledge_answer_index"]
-                        knowledge_sent = knowledge_can[knowledge_answer]
+
+                        if test_dataset_path == "/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0_ner.json":
+                            persona_can = utt["persona_candidates"][0]
+                            persona_ground = utt["persona_pred"]
+                            knowledge_sent = utt["selected_knowledge"][0]
+                            utt['output'] = utt['predicted_utterance']
+                            dial[-1] = utt[key][-1][0]
+
+                        else:
+                            persona_can = utt["persona_candidate"]
+                            persona_ground = utt["persona_grounding"]
+                            knowledge_can = utt["knowledge_candidates"]
+                            knowledge_answer = utt["knowledge_answer_index"]
+                            knowledge_sent = knowledge_can[knowledge_answer]
 
                         persona_can_enc = [tokenizer(sentence, add_special_tokens=False) for sentence in persona_can]
                         persona_ground_enc = [1 if item == True else 0 for item in persona_ground]
-
                         persona_ner_labels = []
                         for i in range(5):
                             persona_ner_labels.append(["O"] * len(persona_can_enc[i]['input_ids']))
@@ -791,9 +813,7 @@ def get_dataset_refine_focus_test(tokenizer, test_dataset_path, test_dataset_cac
                         else:
                             pred = utt["output"]
                         dial[-2] = pred
-
-                        dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in
-                                    dial]
+                        dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in dial]
 
                         assert len(persona_can_enc) == len(persona_ner_labels_enc)
                         assert len(knowledge_can_enc) == len(knowledge_ner_labels_enc)
@@ -804,14 +824,16 @@ def get_dataset_refine_focus_test(tokenizer, test_dataset_path, test_dataset_cac
                         dial_new["persona_ner_label"] = persona_ner_labels_enc
                         dial_new["golden_knowledge"] = knowledge_can_enc
                         dial_new["knowledge_ner_label"] = knowledge_ner_labels_enc
-
                         new_dialogue["utterance"].append(dial_new)
                     persona_enc = persona_can_enc
                     # knowledge_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in knowledge]
                     new_dialogue["persona"] = persona_enc
                     # new_dialogue["knowledge"] = knowledge_enc
                     new_dialogue["dialogID"] = ID
-                    new_dialogue["landmark_link"] = dialogue["landmark_link"]  ##############################
+                    if test_dataset_path == "/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0_ner.json":
+                        new_dialogue["landmark_link"] = ID
+                    else:
+                        new_dialogue["landmark_link"] = dialogue["landmark_link"]  ##############################
                     dataset_enc[name].append(new_dialogue)
 
             logger.info("Tokenize and encode the dataset")
@@ -836,7 +858,6 @@ def get_dataset_refine_wow_test(tokenizer, test_dataset_path, test_dataset_cache
             return dict((n, tokenize(o)) for n, o in obj.items())
         return list(tokenize(o) for o in obj)
     test_dataset_cache = test_dataset_cache + '_test_' + type(tokenizer).__name__
-
     if test_dataset_cache and os.path.isfile(test_dataset_cache):
         print("Load tokenized dataset from cache at %s", test_dataset_cache)
         test_dataset = torch.load(test_dataset_cache)
@@ -848,7 +869,6 @@ def get_dataset_refine_wow_test(tokenizer, test_dataset_path, test_dataset_cache
 
         file_dict = {"test": file_test}
         all_dataset = dict()
-
         for name, file in file_dict.items():
             with open(file, "r", encoding="utf-8") as f:
                 dataset = json.loads(f.read())
@@ -858,13 +878,16 @@ def get_dataset_refine_wow_test(tokenizer, test_dataset_path, test_dataset_cache
                     ID = dialogue["dialogID"]
                     # persona = dialogue["persona"]
                     # knowledge = dialogue["knowledge"]
-                    utterance = dialogue["utterance"]
+
                     new_dialogue = dict()
                     new_dialogue["utterance"] = list()
-                    for i, utt in enumerate(utterance):
+                    for i, utt in enumerate(dialogue["utterance"]):
                         # print(ID, utt.keys())
-
-                        key = "dialogue" + str(i+1)
+                        if test_dataset_cache in ['/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner_cache.tar.gz_test_BartTokenizerFast', \
+                                                  '/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_large/test_random_split_beam5_09k_B_L_with_ner_cache.tar.gz_test_BartTokenizerFast']:
+                            key = "dialogue" + str(i+1)
+                        else:
+                            key = "dialogue" + str(i)
                         if key not in utt.keys():
                             continue
                         dial = utt[key]
@@ -872,9 +895,14 @@ def get_dataset_refine_wow_test(tokenizer, test_dataset_path, test_dataset_cache
                         knowledge_sent = utt["selected_knowledge"]
                         # persona_can_enc = [tokenizer(sentence, add_special_tokens=False) for sentence in persona]
 
-                        ############################# knowledge NER ############################# knowledge NER
+                        ############################# knowledge NER #############################
+                        if test_dataset_path == '/home/data/ssh5131/focus_modeling/for_refiner_v2/wow_sota/wow_dev_predictions.json':
+                            knowledge_sent = ' '.join(knowledge_sent[0])
+                            utt['output'] = utt['output'].replace('<E_s>', '')
+                            utt['output'] = utt['output'].replace('<E_e>', '')
                         knowledge_can_enc = tokenizer(knowledge_sent, add_special_tokens=False)
                         knowledge_ner_labels = ["O"] * len(knowledge_can_enc['input_ids'])
+
 
                         for ner_label in utt["NER_tagging"].keys():
                             tmp_knowledge_index = utt["NER_tagging"][ner_label]["knowledge_index"]
@@ -887,8 +915,7 @@ def get_dataset_refine_wow_test(tokenizer, test_dataset_path, test_dataset_cache
                                 if start_token_id == None or end_token_id == None:
                                     continue
                                 knowledge_ner_labels[start_token_id] = "B"
-                                knowledge_ner_labels[start_token_id + 1:end_token_id + 1] = ["I"] * (
-                                        end_token_id - start_token_id)
+                                knowledge_ner_labels[start_token_id + 1:end_token_id + 1] = ["I"] * (end_token_id - start_token_id)
 
                         # persona_can_enc_new = []
                         # for can in persona_can_enc:
@@ -1142,8 +1169,11 @@ def get_dataset_refine_wow(tokenizer, train_dataset_path, train_dataset_cache, d
                     new_dialogue["utterance"] = list()
                     for i, utt in enumerate(utterance):
                         # print(ID, utt.keys())
+                        if train_dataset_path in ['/home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/train_beam5_09k_B_B_with_ner.json']:
+                            key = "dialogue" + str(i+1)
+                        else:
+                            key = "dialogue" + str(i)
 
-                        key = "dialogue" + str(i)
                         if key not in utt.keys():
                             continue
                         dial = utt[key]

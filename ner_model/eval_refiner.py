@@ -30,6 +30,7 @@ os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
 
 logger = logging.getLogger(__file__)
 
+modified = 0
 
 class Model(LightningModule):
     def __init__(self, **kwargs):
@@ -200,24 +201,44 @@ class Model(LightningModule):
         
         # refine 할지말지 결정 ####################################################################################################
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
+        if 'bart' in self.hparams.pretrained_model:
+            if self.hparams.data_type == "focus":
+                knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+                knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
+                persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
+                persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
+                knowledge = input_ids[:, knowledge_sp_idx + 1:persona_sp_idx]
+                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
+            else:
+                knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+                knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
+                human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
+                human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
+                knowledge = input_ids[:, knowledge_sp_idx + 1:human_sp_idx]
+                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
 
-        knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
-        knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
-        if self.hparams.data_type == "focus":
-
-            persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
-            persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
-
-            knowledge = input_ids[:, knoweldge_sp_idx + 1:persona_sp_idx]
-            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
         else:
-            human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
-            human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
-
-            knowledge = input_ids[:, knoweldge_sp_idx + 1:human_sp_idx]
-
-            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
-        
+            if self.hparams.data_type == "focus":
+                colon_id = self.tokenizer.convert_tokens_to_ids(':')
+                colon_idx = (input_ids == colon_id).nonzero(as_tuple=True)[1][0]
+                persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
+                persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
+                knowledge = input_ids[:, colon_idx + 1:persona_sp_idx]
+                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
+            elif self.hparams.data_type == "wow":
+                colon_id = self.tokenizer.convert_tokens_to_ids(':')
+                colon_idx = (input_ids == colon_id).nonzero(as_tuple=True)[1][0]
+                human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
+                human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
+                knowledge = input_ids[:, colon_idx + 1:human_sp_idx]
+                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
+            else:#cmu
+                knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+                knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
+                human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
+                human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
+                knowledge = input_ids[:, knowledge_sp_idx + 1:human_sp_idx]
+                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
         
         before_refine = input_text[0].split("<human>")[-1]
         
@@ -237,15 +258,17 @@ class Model(LightningModule):
         else:
             input_kg_dae = score_example_single_context(clean_before_refine, clean_knowledge, self.dae_model, self.dae_tokenizer, self.hparams)
         input_kg_dae = float(input_kg_dae)
+
         
 
         ## ROUGE-L과 DAE로 refine 할지말지 결정
-        if input_kg_dae < 0.5:
+        if input_kg_dae < self.hparams.refine_threshold:
             is_refine = True
+            global modified
+            modified += 1
         else:
             is_refine = False
-        
-        
+
         # print("before_refine:", before_refine)
         # print("knowledge:", knowledge)
         # print("input_kg_rougeL:", input_kg_rougeL)
@@ -351,10 +374,7 @@ class Model(LightningModule):
 
             else:
                 raise NotImplementedError
-        
-        
-        
-        
+
         
         reply = self.tokenizer.decode(reply.tolist(), skip_special_tokens=True)
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
@@ -364,7 +384,12 @@ class Model(LightningModule):
 
 
         knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
-        knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
+        try:
+            knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
+        except IndexError:
+            knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(':')
+            knoweldge_sp_idx = (input_ids == knoweldge_sp_id).nonzero(as_tuple=True)[1][0]
+
         if self.hparams.data_type == "focus":
 
             persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
@@ -451,7 +476,8 @@ class Model(LightningModule):
             pred_reply = test_data['y_pred_text']
             input = test_data['input_text']
 
-            if self.hparams.mode != "original":
+            if 'ner_results' in test_data.keys():
+
                 ner_acc += test_data['ner_results']['accuracy']
                 ner_rec += test_data['ner_results']['recall']
                 ner_prec += test_data['ner_results']['precision']
@@ -562,7 +588,10 @@ class Model(LightningModule):
             if pred_reply[0] != "":
 
                 #pred_reply, gold_reply
-                sentence = Sentence(pred_reply[0])
+                sentence = pred_reply[0]
+                sentence = re.sub("[^\w|\s]", "", sentence, 0, re.IGNORECASE)
+
+                sentence = Sentence(sentence)
                 tagger.predict(sentence)
                 for entity in sentence.get_spans('ner'):
                     if len(pred_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
@@ -615,121 +644,6 @@ class Model(LightningModule):
 
             tc += tmp_tc
             ec += tmp_ec
-            # # ChrF++
-            # if self.hparams.num_return_sequences > 1:
-            #     for pred_reply_item in pred_reply:
-            #         pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
-            #         chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
-            # else:
-            #     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
-            #     chrf += chrf_metric([pred_reply_wo_specialchar], [[gold_reply]]).clone().detach()
-            #
-            #
-            # # print('dae')
-            # # dae_factuality
-            # if self.hparams.num_return_sequences > 1:
-            #     for pred_reply_item in pred_reply:
-            #         pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply_item, 0, re.IGNORECASE)
-            #         if len(pred_reply_wo_specialchar) == 0:
-            #             dae += 0
-            #         else:
-            #             dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, self.dae_model, self.dae_tokenizer,
-            #                                             self.hparams)
-            # else:
-            #     pred_reply_wo_specialchar = re.sub("[^A-Z|\s]", "", pred_reply[0], 0, re.IGNORECASE)
-            #     pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
-            #     if len(pred_reply_wo_specialchar) == 0 :
-            #         dae += 0
-            #     else:
-            #         dae += score_example_single_context(pred_reply_wo_specialchar, knowledge, self.dae_model, self.dae_tokenizer,
-            #                                         self.hparams)
-            # # print('dae_score', dae)
-            #
-            # # print('distN')
-            # # distinct-N
-            # if self.hparams.num_return_sequences > 1:
-            #     for pred_reply_item in pred_reply:
-            #         dist1 += distinct_n_sentence_level(pred_reply_item, 1)
-            #         dist2 += distinct_n_sentence_level(pred_reply_item, 2)
-            # else:
-            #     dist1 += distinct_n_sentence_level(pred_reply[0], 1)
-            #     dist2 += distinct_n_sentence_level(pred_reply[0], 2)
-            #
-            #
-            # # print("TC")
-            # pred_format = {'LOC': {"keyword": []},
-            #                'MISC': {"keyword": []},
-            #                'PER': {"keyword": []},
-            #                'ORG': {"keyword": []},
-            #                }
-            # gold_format = {'LOC': {"keyword": []},
-            #                'MISC': {"keyword": []},
-            #                'PER': {"keyword": []},
-            #                'ORG': {"keyword": []},
-            #                }
-            # knowledge_format = {'LOC': {"keyword": []},
-            #                'MISC': {"keyword": []},
-            #                'PER': {"keyword": []},
-            #                'ORG': {"keyword": []},
-            #                }
-            # tmp_ec = 0
-            # tmp_tc = 0
-            # if pred_reply[0] != "":
-            #
-            #     #pred_reply, gold_reply
-            #     sentence = Sentence(pred_reply[0])
-            #     tagger.predict(sentence)
-            #     for entity in sentence.get_spans('ner'):
-            #         if len(pred_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
-            #                 pred_format[entity.get_label("ner").value]["keyword"]:
-            #             # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            #             pred_format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            #     sentence = Sentence(gold_reply)
-            #     tagger.predict(sentence)
-            #     for entity in sentence.get_spans('ner'):
-            #         if len(gold_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
-            #                 gold_format[entity.get_label("ner").value]["keyword"]:
-            #             # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            #             gold_format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            #     sentence = Sentence(knowledge)
-            #     tagger.predict(sentence)
-            #     for entity in sentence.get_spans('ner'):
-            #         if len(knowledge_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
-            #                 knowledge_format[entity.get_label("ner").value]["keyword"]:
-            #             # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            #             knowledge_format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            #
-            #
-            #     for key in gold_format.keys():
-            #         gold_w_num = len(gold_format[key]["keyword"])
-            #         pred_w_num = len(pred_format[key]["keyword"])
-            #         if gold_w_num == 0:
-            #             continue
-            #         tc_ratio = pred_w_num / gold_w_num
-            #         tmp_tc += tc_ratio
-            #     tmp_tc = tmp_tc /4
-            #
-            #
-            #     # print("EC")
-            #     pred_k_list = []
-            #     gold_k_list = []
-            #     knowledge_k_list = []
-            #     for key in gold_format.keys():
-            #         pred_k_list.extend(pred_format[key]["keyword"])
-            #         gold_k_list.extend(gold_format[key]["keyword"])
-            #         knowledge_k_list.extend(knowledge_format[key]["keyword"])
-            #
-            #     knowledge_gold = list(set(knowledge_k_list) & set(gold_k_list))
-            #     # print(knowledge_gold)
-            #     knowledge_gold_pred = list(set(knowledge_gold) & set(pred_k_list))
-            #     # print(knowledge_gold_pred)
-            #     if len(knowledge_gold) == 0:
-            #         tmp_ec = 0
-            #     else:
-            #         tmp_ec = len(knowledge_gold_pred) / len(knowledge_gold)
-            #
-            # tc += tmp_tc
-            # ec += tmp_ec
 
 
         chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -784,6 +698,8 @@ class Model(LightningModule):
         with open(self.hparams.output_dir + self.hparams.flag + '.json', 'w') as outputfile:
             json.dump(result_dict, outputfile, indent='\t')
 
+        print(f"{modified} out of {test_data_index+1} has been modified")
+
         return self.epoch_end(outputs, state='test')
 
     def dataloader(self):
@@ -813,10 +729,10 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
-    parser.add_argument("--test_dataset_path", type=str, default="/home/mnt/ssh5131/FoCus_data/our_data/test_ours.json",
+    parser.add_argument("--test_dataset_path", type=str, default="/home/data/ssh5131/FoCus_data/our_data/test_ours.json",
                         help="Path or url of the dataset. If empty download from S3.")
     parser.add_argument("--test_dataset_cache", type=str,
-                        default='/home/mnt/ssh5131/FoCus_data/our_data/focus_cache.tar.gz',
+                        default='/home/data/ssh5131/FoCus_data/our_data/focus_cache.tar.gz',
                         help="Path or url of the dataset cache")
     parser.add_argument("--flag", type=str, default="", help="add description of the output file")
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
@@ -839,12 +755,13 @@ def main():
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for 1 generated result")
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--dae_model", type=str, default="/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
+    parser.add_argument("--dae_model", type=str, default="/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
     parser.add_argument("--do_sample", type=bool, default=True)
     parser.add_argument("--knowledge_select", type=str, default="None", help="{None, DPR, BM25, TFIDF}")
+    parser.add_argument("--refine_threshold", type=float, default=0.0, help="0<=threshold<=1")
 
 
     #for p-tuning

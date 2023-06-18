@@ -28,6 +28,8 @@ def get_tokens(input_text):
     tokenized_json = nlp.annotate(input_text, properties={'annotators': 'tokenize', 'outputFormat': 'json',
                                                           'ssplit.isOneSentence': True})
     tokenized_text = []
+    print('input text: ',input_text)
+    print('tokenized json: ', tokenized_json)
     for tok in tokenized_json['tokens']:
         tokenized_text.append(tok['word'])
     tokenized_text = ' '.join(tokenized_text)
