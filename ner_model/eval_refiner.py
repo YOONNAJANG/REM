@@ -415,7 +415,7 @@ class Model(LightningModule):
         result['input_text'] = input_text
         result['ner_results'] = ner_results
         result['knowledge'] = knowledge
-        result['refine'] = is_refine
+        result['refine'] = str(is_refine)
 
         return result
 
