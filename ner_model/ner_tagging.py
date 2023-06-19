@@ -108,99 +108,99 @@ tagger = SequenceTagger.load("flair/ner-english-large")
 #############################################
 ##############  INFO(FoCus)  ####################
 #############################################
-total = []
-info = json.load(open("/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0.json"))
-for i, data in enumerate(info["qualitative_results"]): #5639
-    tmp = {}
-    tmp["dialogID"] = i
-    utt_dict = {}
-    dia_his = [data["dialog"]]
-    dia_his.append(data["ground_truth_utterance"])
-    utt_dict["dialogue1"] = dia_his
-    utt_dict["selected_knowledge"] = data["gold_knowledge"]
-    utt_dict["predicted_utterance"] = data["predicted_utterance"]
-    utt_dict["persona"] = data["persona_candidates"]
-    utt_dict["persona_candidates"] = data["persona_candidates"]
-    utt_dict["persona_pred"] = data["persona_pred"]
-
-    tmp["utterance"] = [utt_dict]
-
-    for u_i, each_turn in enumerate(tmp["utterance"]):
-        format = {'LOC': {"keyword": [], "persona_index": {"p_1": [], "p_2": [], "p_3": [], "p_4": [], "p_5": []},
-                          "knowledge_index": [],
-                          "response_index": []},
-                  'MISC': {"keyword": [],
-                           "persona_index": {
-                               "p_1": [],
-                               "p_2": [],
-                               "p_3": [],
-                               "p_4": [],
-                               "p_5": []
-                           },
-                           "knowledge_index": [],
-                           "response_index": []},
-                  'PER': {"keyword": [],
-                          "persona_index": {
-                              "p_1": [],
-                              "p_2": [],
-                              "p_3": [],
-                              "p_4": [],
-                              "p_5": []
-                          },
-                          "knowledge_index": [],
-                          "response_index": []},
-                  'ORG': {"keyword": [],
-                          "persona_index": {
-                              "p_1": [],
-                              "p_2": [],
-                              "p_3": [],
-                              "p_4": [],
-                              "p_5": []
-                          },
-                          "knowledge_index": [],
-                          "response_index": []},
-                  }
-
-        ### response
-        sentence = Sentence(each_turn[f"dialogue{u_i + 1}"][-1])
-        tagger.predict(sentence)
-        for entity in sentence.get_spans('ner'):
-            if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
-                    format[entity.get_label("ner").value]["keyword"]:
-                # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-                format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            format[entity.get_label("ner").value]["response_index"].append((entity.start_position, entity.end_position))
-
-        ### knowledge
-        # knowledge_answer_index = each_turn["knowledge_answer_index"]
-        sentence = Sentence(each_turn["selected_knowledge"])
-        tagger.predict(sentence)
-        for entity in sentence.get_spans('ner'):
-            if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
-                    format[entity.get_label("ner").value]["keyword"]:
-                # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-                format[entity.get_label("ner").value]["keyword"].append(entity.text)
-            format[entity.get_label("ner").value]["knowledge_index"].append(
-                (entity.start_position, entity.end_position))
-
-        ### persona
-        for p_i, each_persona in enumerate(each_turn['persona']):
-            # sentence = Sentence(each_persona)
-            # #     tagger.predict(sentence)
-            sentence = Sentence(each_persona)
-            tagger.predict(sentence)
-            for entity in sentence.get_spans('ner'):
-                if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in format[entity.get_label("ner").value]["keyword"]:
-                    format[entity.get_label("ner").value]["keyword"].append(entity.text)
-                format[entity.get_label("ner").value]["persona_index"][f'p_{p_i+1}'].append((entity.start_position, entity.end_position))
-
-        each_turn["NER_tagging"] = format
-
-
-    total.append(tmp)
-
-with open(f"/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0_ner.json", 'w', encoding='utf-8') as make_file:
-    json.dump(total, make_file, indent="\t")
+# total = []
+# info = json.load(open("/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0.json"))
+# for i, data in enumerate(info["qualitative_results"]): #5639
+#     tmp = {}
+#     tmp["dialogID"] = i
+#     utt_dict = {}
+#     dia_his = [data["dialog"]]
+#     dia_his.append(data["ground_truth_utterance"])
+#     utt_dict["dialogue1"] = dia_his
+#     utt_dict["selected_knowledge"] = data["gold_knowledge"]
+#     utt_dict["predicted_utterance"] = data["predicted_utterance"]
+#     utt_dict["persona"] = data["persona_candidates"]
+#     utt_dict["persona_candidates"] = data["persona_candidates"]
+#     utt_dict["persona_pred"] = data["persona_pred"]
+#
+#     tmp["utterance"] = [utt_dict]
+#
+#     for u_i, each_turn in enumerate(tmp["utterance"]):
+#         format = {'LOC': {"keyword": [], "persona_index": {"p_1": [], "p_2": [], "p_3": [], "p_4": [], "p_5": []},
+#                           "knowledge_index": [],
+#                           "response_index": []},
+#                   'MISC': {"keyword": [],
+#                            "persona_index": {
+#                                "p_1": [],
+#                                "p_2": [],
+#                                "p_3": [],
+#                                "p_4": [],
+#                                "p_5": []
+#                            },
+#                            "knowledge_index": [],
+#                            "response_index": []},
+#                   'PER': {"keyword": [],
+#                           "persona_index": {
+#                               "p_1": [],
+#                               "p_2": [],
+#                               "p_3": [],
+#                               "p_4": [],
+#                               "p_5": []
+#                           },
+#                           "knowledge_index": [],
+#                           "response_index": []},
+#                   'ORG': {"keyword": [],
+#                           "persona_index": {
+#                               "p_1": [],
+#                               "p_2": [],
+#                               "p_3": [],
+#                               "p_4": [],
+#                               "p_5": []
+#                           },
+#                           "knowledge_index": [],
+#                           "response_index": []},
+#                   }
+#
+#         ### response
+#         sentence = Sentence(each_turn[f"dialogue{u_i + 1}"][-1])
+#         tagger.predict(sentence)
+#         for entity in sentence.get_spans('ner'):
+#             if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+#                     format[entity.get_label("ner").value]["keyword"]:
+#                 # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+#                 format[entity.get_label("ner").value]["keyword"].append(entity.text)
+#             format[entity.get_label("ner").value]["response_index"].append((entity.start_position, entity.end_position))
+#
+#         ### knowledge
+#         # knowledge_answer_index = each_turn["knowledge_answer_index"]
+#         sentence = Sentence(each_turn["selected_knowledge"])
+#         tagger.predict(sentence)
+#         for entity in sentence.get_spans('ner'):
+#             if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+#                     format[entity.get_label("ner").value]["keyword"]:
+#                 # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+#                 format[entity.get_label("ner").value]["keyword"].append(entity.text)
+#             format[entity.get_label("ner").value]["knowledge_index"].append(
+#                 (entity.start_position, entity.end_position))
+#
+#         ### persona
+#         for p_i, each_persona in enumerate(each_turn['persona']):
+#             # sentence = Sentence(each_persona)
+#             # #     tagger.predict(sentence)
+#             sentence = Sentence(each_persona)
+#             tagger.predict(sentence)
+#             for entity in sentence.get_spans('ner'):
+#                 if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in format[entity.get_label("ner").value]["keyword"]:
+#                     format[entity.get_label("ner").value]["keyword"].append(entity.text)
+#                 format[entity.get_label("ner").value]["persona_index"][f'p_{p_i+1}'].append((entity.start_position, entity.end_position))
+#
+#         each_turn["NER_tagging"] = format
+#
+#
+#     total.append(tmp)
+#
+# with open(f"/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0_ner.json", 'w', encoding='utf-8') as make_file:
+#     json.dump(total, make_file, indent="\t")
 
 
 
@@ -518,117 +518,117 @@ with open(f"/home/data/yoonna/Refiner/ner_model/inf_qualitative_results_0_ner.js
 # # #     total_ner_set[k] = list(v)
 
 
-# # ###############################################
-# # ################  cmudog  ####################
-# # ###############################################
-# file_name = "train"
-# with open(f"/home/data/ssh5131/focus_modeling/others/cmudog/processed/{file_name}.json", 'r') as read_file:
-#     focus_data = json.load(read_file)
-#
-# total_data = {'data': []}
-# total_ner_set = defaultdict(set)
-# print(len(focus_data["data"]))
-# for each_dialog in tqdm(focus_data['data']):
-#     # ner_set = defaultdict(set)
-#     # print("-------------------------------------------")
-#     # for each_persona in each_dialog['persona']:
-#     #     # print(each_persona)
-#     #     sentence = Sentence(each_persona)
-#     #     tagger.predict(sentence)
-#     #     print(sentence)
-#     #     for entity in sentence.get_spans('ner'):
-#     #         ner_set[entity.get_label("ner").value].add(entity.text)
-#     #
-#     #         print(ner_set)
-#     #
-#
-#     for u_i, each_turn in enumerate(each_dialog["utterance"]):
-#
-#         format = {'LOC': {"keyword": [],
-#                           "persona_index": {
-#                               "p_1": [],
-#                               "p_2": [],
-#                               "p_3": [],
-#                               "p_4": [],
-#                               "p_5": []
-#                           },
-#                           "knowledge_index": [],
-#                           "response_index": []},
-#                   'MISC': {"keyword": [],
-#                            "persona_index": {
-#                                "p_1": [],
-#                                "p_2": [],
-#                                "p_3": [],
-#                                "p_4": [],
-#                                "p_5": []
-#                            },
-#                            "knowledge_index": [],
-#                            "response_index": []},
-#                   'PER': {"keyword": [],
-#                           "persona_index": {
-#                               "p_1": [],
-#                               "p_2": [],
-#                               "p_3": [],
-#                               "p_4": [],
-#                               "p_5": []
-#                           },
-#                           "knowledge_index": [],
-#                           "response_index": []},
-#                   'ORG': {"keyword": [],
-#                           "persona_index": {
-#                               "p_1": [],
-#                               "p_2": [],
-#                               "p_3": [],
-#                               "p_4": [],
-#                               "p_5": []
-#                           },
-#                           "knowledge_index": [],
-#                           "response_index": []},
-#                   }
-#
-#         ### response
-#         sentence = Sentence(each_turn[f"dialogue{u_i + 1}"][-1])
-#         tagger.predict(sentence)
-#         for entity in sentence.get_spans('ner'):
-#             if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in format[entity.get_label("ner").value]["keyword"]:
-#                 # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-#                 format[entity.get_label("ner").value]["keyword"].append(entity.text)
-#             format[entity.get_label("ner").value]["response_index"].append((entity.start_position, entity.end_position))
-#
-#
-#         #
-#         # ### persona
-#         # for p_i, each_persona in enumerate(each_dialog['persona']):
-#         #     # sentence = Sentence(each_persona)
-#         #     # #     tagger.predict(sentence)
-#         #     sentence = Sentence(each_persona)
-#         #     tagger.predict(sentence)
-#         #     for entity in sentence.get_spans('ner'):
-#         #         if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in format[entity.get_label("ner").value]["keyword"]:
-#         #             format[entity.get_label("ner").value]["keyword"].append(entity.text)
-#         #         format[entity.get_label("ner").value]["persona_index"][f'p_{p_i+1}'].append((entity.start_position, entity.end_position))
-#
-#         ### knowledge
-#         # knowledge_answer_index = each_turn["knowledge_answer_index"]
-#         sentence = Sentence(each_turn["selected_knowledge"])
-#         tagger.predict(sentence)
-#         for entity in sentence.get_spans('ner'):
-#             if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
-#                     format[entity.get_label("ner").value]["keyword"]:
-#                 # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
-#                 format[entity.get_label("ner").value]["keyword"].append(entity.text)
-#             format[entity.get_label("ner").value]["knowledge_index"].append((entity.start_position, entity.end_position))
-#         each_turn["NER_tagging"] = format
-#
-#     total_data["data"].append(each_dialog)
-#     # for k, v in ner_set.items():
-#     #     ner_set[k] = list(v)
-#     #     total_ner_set[k].update(ner_set[k])
-#     #
-#     # each_dialog['ner_set'] = ner_set
-#     # total_data['data'].append(each_dialog)
-#
-# print(len(total_data["data"]))
-#
-# with open(f"/home/data/ssh5131/focus_modeling/for_refiner_v2/cmudog/{file_name}.json", 'w', encoding='utf-8') as make_file:
-#     json.dump(total_data, make_file, indent="\t")
+# ###############################################
+# ################  cmudog  ####################
+# ###############################################
+with open("/home/data/leejeongwoo/projects/focus/cmudog_ref_github/ITDD/integrated_result.json", 'r') as read_file:
+    cmu_data = json.load(read_file)
+
+breakpoint()
+total_data = {'data': []}
+total_ner_set = defaultdict(set)
+print(len(cmu_data["data"]))
+for each_dialog in tqdm(cmu_data):
+    # ner_set = defaultdict(set)
+    # print("-------------------------------------------")
+    # for each_persona in each_dialog['persona']:
+    #     # print(each_persona)
+    #     sentence = Sentence(each_persona)
+    #     tagger.predict(sentence)
+    #     print(sentence)
+    #     for entity in sentence.get_spans('ner'):
+    #         ner_set[entity.get_label("ner").value].add(entity.text)
+    #
+    #         print(ner_set)
+    #
+
+    for u_i, each_turn in enumerate(each_dialog["utterance"]):
+
+        format = {'LOC': {"keyword": [],
+                          "persona_index": {
+                              "p_1": [],
+                              "p_2": [],
+                              "p_3": [],
+                              "p_4": [],
+                              "p_5": []
+                          },
+                          "knowledge_index": [],
+                          "response_index": []},
+                  'MISC': {"keyword": [],
+                           "persona_index": {
+                               "p_1": [],
+                               "p_2": [],
+                               "p_3": [],
+                               "p_4": [],
+                               "p_5": []
+                           },
+                           "knowledge_index": [],
+                           "response_index": []},
+                  'PER': {"keyword": [],
+                          "persona_index": {
+                              "p_1": [],
+                              "p_2": [],
+                              "p_3": [],
+                              "p_4": [],
+                              "p_5": []
+                          },
+                          "knowledge_index": [],
+                          "response_index": []},
+                  'ORG': {"keyword": [],
+                          "persona_index": {
+                              "p_1": [],
+                              "p_2": [],
+                              "p_3": [],
+                              "p_4": [],
+                              "p_5": []
+                          },
+                          "knowledge_index": [],
+                          "response_index": []},
+                  }
+
+        ### response
+        sentence = Sentence(each_turn[f"dialogue{u_i + 1}"][-1])
+        tagger.predict(sentence)
+        for entity in sentence.get_spans('ner'):
+            if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in format[entity.get_label("ner").value]["keyword"]:
+                # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            format[entity.get_label("ner").value]["response_index"].append((entity.start_position, entity.end_position))
+
+
+        #
+        # ### persona
+        # for p_i, each_persona in enumerate(each_dialog['persona']):
+        #     # sentence = Sentence(each_persona)
+        #     # #     tagger.predict(sentence)
+        #     sentence = Sentence(each_persona)
+        #     tagger.predict(sentence)
+        #     for entity in sentence.get_spans('ner'):
+        #         if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in format[entity.get_label("ner").value]["keyword"]:
+        #             format[entity.get_label("ner").value]["keyword"].append(entity.text)
+        #         format[entity.get_label("ner").value]["persona_index"][f'p_{p_i+1}'].append((entity.start_position, entity.end_position))
+
+        ### knowledge
+        # knowledge_answer_index = each_turn["knowledge_answer_index"]
+        sentence = Sentence(each_turn["selected_knowledge"])
+        tagger.predict(sentence)
+        for entity in sentence.get_spans('ner'):
+            if len(format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
+                    format[entity.get_label("ner").value]["keyword"]:
+                # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
+                format[entity.get_label("ner").value]["keyword"].append(entity.text)
+            format[entity.get_label("ner").value]["knowledge_index"].append((entity.start_position, entity.end_position))
+        each_turn["NER_tagging"] = format
+
+    total_data["data"].append(each_dialog)
+    # for k, v in ner_set.items():
+    #     ner_set[k] = list(v)
+    #     total_ner_set[k].update(ner_set[k])
+    #
+    # each_dialog['ner_set'] = ner_set
+    # total_data['data'].append(each_dialog)
+
+print(len(total_data["data"]))
+
+with open(f"/home/data/ssh5131/focus_modeling/for_refiner_v2/cmudog/{file_name}.json", 'w', encoding='utf-8') as make_file:
+    json.dump(total_data, make_file, indent="\t")
