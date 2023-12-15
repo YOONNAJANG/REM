@@ -1,38 +1,39 @@
-# Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations
+[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)
+===
 [Yoonna Jang*](https://github.com/YOONNAJANG), [Suhyune Son*](https://github.com/sonsuhyune), [Jeongwoo Lee*](https://github.com/jeongwoolee-jason), Junyoung Son, Yuna Hur, Jungwoo Lim, Hyeonseok Moon, Kisu Yang, and Heuiseok Lim (*Equal contributors)
 
+***
+### <center>Official codes for the paper: <br/>**[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)** <br/>accepted @[EMNLP 2023](https://aclanthology.org/volumes/2023.emnlp-main/).</center>
+***
 
-Official codes for the paper: **[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)**, accepted at [EMNLP 2023](https://aclanthology.org/volumes/2023.emnlp-main/).
+Despite the striking advances in recent language generation performance, model-generated responses have suffered from the chronic problem of hallucinations that are either untrue or unfaithful to a given source. Especially in the task of knowledge grounded conversation, the models are required to generate informative responses, but hallucinated utterances lead to miscommunication. In particular, entity-level hallucination that causes critical misinformation and undesirable conversation is one of the major concerns. To address this issue, we propose a post-hoc refinement method called \textbf{REM}. It aims to enhance the quality and faithfulness of hallucinated utterances by refining them based on the source knowledge. If the generated utterance has a low source-faithfulness score with the given knowledge, REM mines the key entities in the knowledge and implicitly uses them for refining the utterances. We verify that our method reduces entity hallucination in the utterance. Also, we show the adaptability and efficacy of REM with extensive experiments and generative results.
 
 <p align="center"><img src="rem_ex.png" width="380px" height="470px" title="REM Example"></img></p>
 
 
 
 ### Setting Environment
-We trained the models under the setting of `python==3.7` and `torch==1.5.0`,  with one RTX8000 GPU. Also, our codes are built on the codes of [huggingface](https://github.com/huggingface/transfer-learning-conv-ai), and we utilized [pytorch-ignite](https://github.com/pytorch/ignite) from pytorch in [`ignite`](https://github.com/pkchat-focus/FoCus/tree/main/ignite) folder.
+We trained the models under the setting of `python==3.7` and `torch==1.9.0`, with one RTX8000 GPU. 
+Thanks to open source libraries, such as [transformers](https://github.com/huggingface/transformers), [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning), [wandb](https://github.com/wandb/wandb) we built our code on their codes. We also use [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) and [Distinct-N](https://github.com/neural-dialogue-metrics/Distinct-N) metrics, and we thank the authors for releasing the codes.
+
 
 1.Make a virtual environment
     
-    $conda create -n ENV_NAME python=3.7
+    $conda create -n ENV_NAME python=3.8
 
-2.Install `pytorch==1.5.0`
+2.Install `pytorch==1.9.0` according to your CUDA version.
 
-    $conda install pytorch==1.5.0 torchvision==0.6.0 cudatoolkit=10.2 -c pytorch
+    $conda install pytorch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 cudatoolkit=11.3 -c pytorch -c conda-forge
 
 3.Install the required libraries.
     
     $pip install -r requirements.txt
+
+4.Download DAE (dae_w_syn_hallu) [model checkpoint](https://drive.google.com/drive/folders/16NEL8T-JvhJPy7miVUbMELVE8ZOTYGit). As DAE relies on Stanford CoreNLP, the code below should be run in stanford-corenlp folder (Please refer [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) for help):
     
+    $ nohup java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer &
 
-
-### Dataset 
-This data is the modified version of the original data (which is reported in the paper) after ethical inspection.
-
-You should create directories named **`infer_log_focus`, `train_log_focus`, `test_log_focus`, `models`, `data`** under FoCus folder.
-
-We put train, valid, test files of the dataset in the **`data`** folder. 
-
-The project directory should follow this directory structure:
+5.Download data
 
 
     📦REM
@@ -40,6 +41,9 @@ The project directory should follow this directory structure:
     ┃ ┗ 📜train.json
     ┃ ┗ 📜valid.json
     ┣ 📂metrics
+    ┃ ┗ 📜distincN.py
+    ┃ ┗ 📂model
+    ┃   ┗ 📂dae_w_syn_hallu
     ┣ 📂src
     ┣ 📜README.md
     ┗ 📜requirements.txt

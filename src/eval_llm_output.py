@@ -53,7 +53,7 @@ def main():
     parser.add_argument("--test_mode", type=bool, default=False)
     parser.add_argument("--before_refine", type=bool, default=False)
     parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--dae_model", type=str, default="/home/data/yoonna/Refiner/metrics/dae_factuality/model/dae_w_syn_hallu", help="pre-trained dae model directory")
+    parser.add_argument("--dae_model", type=str, default="metrics/dae_factuality/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--refine_threshold", type=float, default=0.5, help="0<=threshold<=1")
