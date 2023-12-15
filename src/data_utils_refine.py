@@ -203,7 +203,7 @@ def get_dataset_refine_data(tokenizer, data_name, train_dataset_path, train_data
         for name, file in file_dict.items():
             with open(file, "r", encoding="utf-8") as f:
                 dataset = json.loads(f.read())
-                if data_name =="cmodog":
+                if data_name =="cmudog":
                     dataset = dataset["data"]
                 dataset_enc = dict()
                 dataset_enc[name] = list()
