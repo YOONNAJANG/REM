@@ -218,6 +218,4 @@ def main():
 
 
 if __name__ == "__main__":
-    from setproctitle import setproctitle
-    setproctitle("Yoonna")
     main()
