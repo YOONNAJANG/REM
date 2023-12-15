@@ -267,7 +267,7 @@ def main():
     parser.add_argument("--gpu_num", type=int, default=1, help="number of gpus to use")
     parser.add_argument("--cpu_workers", type=int, default=16)
     parser.add_argument("--test_mode", type=bool, default=False)
-    parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/regen_add_ner/", help="default value for PLMs")
+    parser.add_argument("--output_dir", type=str, default="output/", help="default value for PLMs")
 
 
     args = vars(parser.parse_args())
