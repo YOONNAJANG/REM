@@ -1,8 +1,11 @@
 # Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations
 [Yoonna Jang*](https://github.com/YOONNAJANG), [Suhyune Son*](https://github.com/sonsuhyune), [Jeongwoo Lee*](https://github.com/jeongwoolee-jason), Junyoung Son, Yuna Hur, Jungwoo Lim, Hyeonseok Moon, Kisu Yang, and Heuiseok Lim (*Equal contributors)
 
-Source codes of **[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)**, accepted at [EMNLP 2023](https://aclanthology.org/volumes/2023.emnlp-main/).
 
+Official codes for the paper: **[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)**, accepted at [EMNLP 2023](https://aclanthology.org/volumes/2023.emnlp-main/).
+
+[//]: # (<img src="rem_ex.png" width="1000px" height="50px" title="REM Example"></img>)
+![Github_Logo](rem_ex.png)  
 
 
 ### Setting Environment
@@ -37,9 +40,9 @@ The project directory should follow this directory structure:
     ┃ ┗ 📜train.json
     ┃ ┗ 📜valid.json
     ┣ 📂metrics
-    ┣ 📂ner_model
+    ┣ 📂src
     ┣ 📜README.md
-    ┗ 📜req.txt
+    ┗ 📜requirements.txt
 
 
 ### Training models
