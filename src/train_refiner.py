@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import random
 
-from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog, dataloader_multi
+from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_train, dataloader_multi
 
 os.environ["OMP_NUM_THREADS"] = "8"
 torch.set_num_threads(4)
@@ -32,7 +32,7 @@ class Model(LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
         self.save_hyperparameters()
-        self.pseudo_token = self.hparams.pseudo_token
+
 
         from transformers import AutoTokenizer
         if "bart" in self.hparams.pretrained_model:
@@ -62,21 +62,6 @@ class Model(LightningModule):
             self.model.load_state_dict(self.checkpoint_loaded, strict=False)
 
 
-    def embed_inputs(self, queries):
-        bz = queries.shape[0] #batchsize
-        queries_for_embedding = queries.clone()
-        queries_for_embedding[(queries == self.pseudo_token_id)] = self.tokenizer.unk_token_id
-        raw_embeds = self.embeddings(queries_for_embedding) #bsz, seqlen, embdim
-        blocked_indices = (queries == self.pseudo_token_id)
-        blocked_indices = torch.nonzero(blocked_indices, as_tuple=False).reshape((bz, self.spell_length, 2))[:, :, 1]  # True index tensors -> bz, spell_length, 2 -> :,:,1 (한 입력마다 해당 인덱스 불러옴) ->bsz, spell_length
-        replace_embeds = self.prompt_encoder() #spell_length, embdim
-        if len(self.hparams.checkpoint) > 0:
-            self.prompt_encoder.load_state_dict(self.checkpoint_prompt, strict=False)
-
-        for bidx in range(bz):
-            for i in range(self.prompt_encoder.spell_length):
-                raw_embeds[bidx, blocked_indices[bidx, i], :] = replace_embeds[i, :] #해당 토큰 자리만 replace embedding
-        return raw_embeds
 
     def step(self, batch, batch_idx):
         output = self.model(**batch)
@@ -221,17 +206,12 @@ class Model(LightningModule):
 
     def dataloader(self):
         dataset_list = self.hparams.data_type.split(",")
-        print(dataset_list)
         if len(dataset_list) > 1:
             train_dataset, valid_dataset = dataloader_multi(self.hparams, self.tokenizer, dataset_list)
         else:
             data_type = dataset_list[0]
-            if data_type == "focus":
-                train_dataset, valid_dataset = dataloader_focus(self.hparams, self.tokenizer)
-            elif data_type == "wow":
-                train_dataset, valid_dataset = dataloader_wow(self.hparams, self.tokenizer)
-            elif data_type == "cmudog":
-                train_dataset, valid_dataset = dataloader_cmudog(self.hparams, self.tokenizer)
+            train_dataset, valid_dataset = dataloader_train(self.hparams, data_type, self.tokenizer, self.hparams.train_path,
+                                                            self.hparams.train_cache_path, self.hparams.dev_path, self.hparams.dev_cache_path)
 
         return train_dataset, valid_dataset
 
@@ -248,6 +228,10 @@ class Model(LightningModule):
 def main():
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
+    parser.add_argument("--train_path", type=str, default="data/focus")
+    parser.add_argument("--train_cache_path", type=str, default="data/focus")
+    parser.add_argument("--dev_path", type=str, default="data/focus")
+    parser.add_argument("--dev_cache_path", type=str, default="data/focus")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
     parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base, t5-small
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
@@ -280,7 +264,7 @@ def main():
     model.eval()
     model.to(args['device'])
 
-    monitor = 'valid_ner_loss' if args['mode']=='ner' else 'valid_lm_loss'
+    monitor = 'valid_lm_loss'
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=args['output_dir'],
