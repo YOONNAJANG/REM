@@ -78,9 +78,7 @@ def build_input_data(args, data_name, tokenizer, history, persona_cans, persona_
     dec_sequence = [dec_bos] + reply + [eos]
 
     instance = dict()
-    print(enc_sequence)
-    print(ner_label)
-    breakpoint()
+
     if 'bart' in tokenizer.name_or_path:
         instance['input_ids'] = enc_sequence
         instance['ner_labels'] = ner_label
@@ -106,8 +104,8 @@ def dataloader_train(args, data_name, tokenizer, train_path, train_cache_path, d
             utterance = data['utterance']
             for i, utt in enumerate(utterance):
                 history = utt['dialog'][-(2 * args.max_history):]
-                if len(history[-1]) > 256:
-                    continue
+                # if len(history[-1]) > 256:
+                #     continue
                 if data_name == "focus":
 
                     persona_cans = utt['persona_candidates']
