@@ -1,26 +1,19 @@
 import logging
 import torch
 import torch.nn as nn
-from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss, KLDivLoss
+from torch.nn import CrossEntropyLoss
 from transformers import BartForConditionalGeneration
-from transformers.models.bart.modeling_bart import BartPretrainedModel, BartEncoder, BartDecoder, BartConfig, BartLearnedPositionalEmbedding, BartEncoderLayer, _expand_mask
+from transformers.models.bart.modeling_bart import BartPretrainedModel, BartDecoder, BartConfig, BartLearnedPositionalEmbedding, BartEncoderLayer, _expand_mask
 from transformers import T5ForConditionalGeneration
-from transformers.models.t5.modeling_t5 import T5PreTrainedModel, T5Stack, T5Config
 import random, math
-from typing import Optional, Tuple
-import copy
+from typing import Optional
 
 from transformers.modeling_outputs import (
     ModelOutput,
     BaseModelOutput,
-    BaseModelOutputWithPastAndCrossAttentions,
-    CausalLMOutputWithCrossAttentions,
-    Seq2SeqLMOutput,
     Seq2SeqModelOutput,
-    Seq2SeqQuestionAnsweringModelOutput,
-    Seq2SeqSequenceClassifierOutput,
 )
-from torch.nn import Sigmoid, Softmax
+from torch.nn import Softmax
 from datasets import load_metric
 logger = logging.getLogger(__name__)
 
@@ -78,7 +71,7 @@ class BartEncDec(BartForConditionalGeneration):
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
             predictions = torch.argmax(ner_logits, dim=2)
-            ner_acc = 0
+            
             true_predictions = [
                 [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
@@ -136,7 +129,7 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
         output_dict['ner_logits'] = ner_logits
 
         softmax = Softmax(dim=-1)
-        softmax_result, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
+        _, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
 
         result_true = (top_ner_result == 1) + (top_ner_result == 2)
 
@@ -187,10 +180,9 @@ class BartEncDec_NER_explicit(BartForConditionalGeneration):
         ner_loss = None
         if ner_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-1)
-            # cls_loss = loss_fct(cls_logits, cls_labels.type_as(cls_logits))
             ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
             predictions = torch.argmax(ner_logits, dim=2)
-            ner_acc = 0
+            
             true_predictions = [
                 [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
@@ -266,7 +258,7 @@ class T5EncDec(T5ForConditionalGeneration):
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
             predictions = torch.argmax(ner_logits, dim=2)
-            ner_acc = 0
+            
             true_predictions = [
                 [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
@@ -290,7 +282,6 @@ class T5EncDec(T5ForConditionalGeneration):
         return output_dict
 
 
-#
 class T5EncDec_NER_explicit(T5ForConditionalGeneration):
     _keys_to_ignore_on_load_missing = [
         r"encoder.embed_tokens.weight",
@@ -334,7 +325,7 @@ class T5EncDec_NER_explicit(T5ForConditionalGeneration):
         output_dict['ner_logits'] = ner_logits
 
         softmax = Softmax(dim=-1)
-        softmax_result, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
+        _, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
 
         result_true = (top_ner_result == 1) + (top_ner_result == 2)
 
@@ -390,10 +381,9 @@ class T5EncDec_NER_explicit(T5ForConditionalGeneration):
         ner_loss = None
         if ner_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-1)
-            # cls_loss = loss_fct(cls_logits, cls_labels.type_as(cls_logits))
             ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
             predictions = torch.argmax(ner_logits, dim=2)
-            ner_acc = 0
+            
             true_predictions = [
                 [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
@@ -601,7 +591,7 @@ class Bart_imp_Encoder(BartPretrainedModel):
         ner_logits = self.summary(ner_logits_cls).squeeze(-1)
 
         softmax = Softmax(dim=-1)
-        softmax_result, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
+        _, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
 
         result_true = (top_ner_result == 1) + (top_ner_result == 2)
         new_enc_outputs = []
@@ -620,9 +610,7 @@ class Bart_imp_Encoder(BartPretrainedModel):
 
         if not return_dict:
             return tuple(v for v in [hidden_states, encoder_states, all_attentions] if v is not None)
-        # return BaseModelOutput(
-        #     last_hidden_state=new_hidden_states, hidden_states=encoder_states, attentions=all_attentions
-        # )
+
         return BaseModelOutput(
             last_hidden_state=new_hidden_states, hidden_states=ner_logits, attentions=all_attentions
         )
@@ -739,7 +727,6 @@ class BartModel_implicit(BartPretrainedModel):
             decoder_attentions=decoder_outputs.attentions,
             cross_attentions=decoder_outputs.cross_attentions,
             encoder_last_hidden_state=encoder_outputs.last_hidden_state,
-            # encoder_last_hidden_state_ori=encoder_outputs.hidden_states,
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
         )
@@ -785,33 +772,21 @@ class BartEncDec_NER_implicit(BartForConditionalGeneration):
             outputs = self.model(inputs_embeds=inputs_embeds, encoder_outputs=encoder_outputs, decoder_input_ids=decoder_input_ids)
 
         ner_logits = outputs['encoder_hidden_states']  # batch, encseqlen, dim last_encoder_hidden_states_ori
-        # ner_logits = self.summary(ner_logits_cls).squeeze(-1)
-        # output_dict['ner_logits'] = ner_logits
-
-        softmax = Softmax(dim=-1)
-        softmax_result, top_ner_result = torch.topk(softmax(ner_logits), 1) #"B":1, "I":2, "O":0,
-
-        result_true = (top_ner_result == 1) + (top_ner_result == 2)
 
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias  # batch, decseqlen, dim
-        # output_dict['logits'] = lm_logits
-
 
         masked_lm_loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
-            # output_dict['lm_loss'] = masked_lm_loss
-
 
         ner_loss = None
         ner_results = None
         if ner_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-1)
-            # cls_loss = loss_fct(cls_logits, cls_labels.type_as(cls_logits))
             ner_loss = loss_fct(ner_logits.view(-1, 3), ner_labels.view(-1).long())
             predictions = torch.argmax(ner_logits, dim=2)
-            ner_acc = 0
+            
             true_predictions = [
                 [self.id2label[p.item()] for (p, l) in zip(prediction, label) if l != -1]
                 for prediction, label in zip(predictions, ner_labels)
@@ -827,7 +802,6 @@ class BartEncDec_NER_implicit(BartForConditionalGeneration):
           "f1": results["overall_f1"],
           "accuracy": results["overall_accuracy"],
       }
-
 
         return ModelOutput(
             logits=lm_logits,
