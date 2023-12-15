@@ -20,15 +20,15 @@ Thanks to open source libraries, such as [transformers](https://github.com/huggi
 
 #### 1.Make a virtual environment
     
-    $conda create -n ENV_NAME python=3.8
+    $ conda create -n ENV_NAME python=3.8
 
 #### 2.Install `pytorch==1.9.0` according to your CUDA version.
 
-    $conda install pytorch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 cudatoolkit=11.3 -c pytorch -c conda-forge
+    $ conda install pytorch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 cudatoolkit=11.3 -c pytorch -c conda-forge
 
 #### 3.Install the required libraries.
     
-    $pip install -r requirements.txt
+    $ pip install -r requirements.txt
 
 #### 4.Download DAE (dae_w_syn_hallu) [model checkpoint](https://drive.google.com/drive/folders/16NEL8T-JvhJPy7miVUbMELVE8ZOTYGit)
 As DAE relies on Stanford CoreNLP, the code below should be run in stanford-corenlp folder (Please refer [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) for help):
