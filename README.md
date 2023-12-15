@@ -11,7 +11,7 @@ Despite the striking advances in recent language generation performance, model-g
 <p align="center"><img src="rem_ex.png" width="380px" height="460px" title="REM Example"></img></p>
 
 
-* * *
+***
 
 ### Setting Environment
 We trained the models under the setting of `python==3.7` and `torch==1.9.0`, with one RTX8000 GPU. 
