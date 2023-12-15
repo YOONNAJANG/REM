@@ -17,23 +17,24 @@ We trained the models under the setting of `python==3.7` and `torch==1.9.0`, wit
 Thanks to open source libraries, such as [transformers](https://github.com/huggingface/transformers), [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning), [wandb](https://github.com/wandb/wandb) we built our code on their codes. We also use [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) and [Distinct-N](https://github.com/neural-dialogue-metrics/Distinct-N) metrics, and we thank the authors for releasing the codes.
 
 
-1.Make a virtual environment
+#### 1.Make a virtual environment
     
     $conda create -n ENV_NAME python=3.8
 
-2.Install `pytorch==1.9.0` according to your CUDA version.
+#### 2.Install `pytorch==1.9.0` according to your CUDA version.
 
     $conda install pytorch==1.9.0 torchvision==0.10.0 torchaudio==0.9.0 cudatoolkit=11.3 -c pytorch -c conda-forge
 
-3.Install the required libraries.
+#### 3.Install the required libraries.
     
     $pip install -r requirements.txt
 
-4.Download DAE (dae_w_syn_hallu) [model checkpoint](https://drive.google.com/drive/folders/16NEL8T-JvhJPy7miVUbMELVE8ZOTYGit). As DAE relies on Stanford CoreNLP, the code below should be run in stanford-corenlp folder (Please refer [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) for help):
+#### 4.Download DAE (dae_w_syn_hallu) [model checkpoint](https://drive.google.com/drive/folders/16NEL8T-JvhJPy7miVUbMELVE8ZOTYGit)
+As DAE relies on Stanford CoreNLP, the code below should be run in stanford-corenlp folder (Please refer [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) for help):
     
     $ nohup java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer &
 
-5.Download data
+#### 5.Download data
 
 
     📦REM
@@ -52,13 +53,13 @@ Thanks to open source libraries, such as [transformers](https://github.com/huggi
 ### Training models
 Uncomment the command lines in the **`train.sh`** file, to start training the model. 
 
-    $ sh train.sh 
+    $ sh train_model.sh 
 
 
 ### Evaluation
 Uncomment the command lines in the **`test.sh`** file, to evaluate the model on the test set. 
 
-    $ sh test.sh
+    $ sh eval_model.sh
 
 
 ### Inference
