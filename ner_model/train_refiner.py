@@ -22,7 +22,7 @@ from transformers import AdamW
 from collections import Counter, defaultdict
 import numpy as np
 import random
-from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
+# from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy, init_prompt_embedding, init_focus_tokens_embedding
 
 from data_utils_refine import add_special_tokens_, special_tokens_focus, dataloader_focus, dataloader_wow, dataloader_cmudog, dataloader_multi
 # dataloader_cmudog
@@ -75,32 +75,32 @@ class Model(LightningModule):
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
         print('mode: ', self.hparams.mode)
-        if self.hparams.ptuning==True:
-            self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer,
-                                                             special_tokens={'pseudo_token':self.pseudo_token})
-
-            for name, param in self.model.named_parameters():
-                # print('not frozen params: ', name)
-                # if name.startswith('model.encoder.'):
-                param.requires_grad = False
-            self.embeddings = get_embedding_layer(self.hparams, self.model)
-            # set allowed vocab set
-            self.vocab = self.tokenizer.get_vocab()
-            self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
-            self.template = tuple([int(item) for item in self.hparams.template.split(',')])
-            # load prompt encoder
-            self.hidden_size = self.embeddings.embedding_dim
-            self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
-            self.model.resize_token_embeddings(len(self.tokenizer))
-
-            self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
-            self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
-            self.spell_length = sum(self.template)
-            self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
-            self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
-
-            if len(self.hparams.target_word_to_init) > 0:
-                init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
+        # if self.hparams.ptuning==True:
+        #     self.model, self.tokenizer = add_special_tokens_(self.model, self.tokenizer,
+        #                                                      special_tokens={'pseudo_token':self.pseudo_token})
+        #
+        #     for name, param in self.model.named_parameters():
+        #         # print('not frozen params: ', name)
+        #         # if name.startswith('model.encoder.'):
+        #         param.requires_grad = False
+        #     self.embeddings = get_embedding_layer(self.hparams, self.model)
+        #     # set allowed vocab set
+        #     self.vocab = self.tokenizer.get_vocab()
+        #     self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
+        #     self.template = tuple([int(item) for item in self.hparams.template.split(',')])
+        #     # load prompt encoder
+        #     self.hidden_size = self.embeddings.embedding_dim
+        #     self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+        #     self.model.resize_token_embeddings(len(self.tokenizer))
+        #
+        #     self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
+        #     self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
+        #     self.spell_length = sum(self.template)
+        #     self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
+        #     self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+        #
+        #     if len(self.hparams.target_word_to_init) > 0:
+        #         init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
 
         init_focus_tokens_embedding(special_tokens_focus, self.model, self.tokenizer)
 

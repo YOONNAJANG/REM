@@ -14,7 +14,7 @@ from datasets import load_metric
 import re
 from tqdm import tqdm
 
-from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
+# from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
 
 from datasets import load_metric
 from torchmetrics import CHRFScore

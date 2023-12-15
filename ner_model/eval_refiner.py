@@ -17,7 +17,6 @@ from datasets import load_metric
 import re
 from tqdm import tqdm
 
-from ptuning import get_embedding_layer, PromptEncoder, get_vocab_by_strategy
 
 from datasets import load_metric
 from torchmetrics import CHRFScore
@@ -109,29 +108,29 @@ class Model(LightningModule):
         print('hparams: ', self.hparams)
         print('ptuning: ', self.hparams.ptuning)
         print('mode: ', self.hparams.mode)
-        if self.hparams.ptuning==True:
+        # if self.hparams.ptuning==True:
 
-            self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel,
-                                                                                   self.tokenizer,
-                                                                                   special_tokens={'pseudo_token':self.pseudo_token})
-            for name, param in self.model.named_parameters():
-                # print('not frozen params: ', name)
-                # if name.startswith('model.encoder.'):
-                param.requires_grad = False
-            self.embeddings = get_embedding_layer(self.hparams, self.model)
-            # set allowed vocab set
-            self.vocab = self.tokenizer.get_vocab()
-            self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
-            self.template = tuple([int(item) for item in self.hparams.template.split(',')])
-            # load prompt encoder
-            self.hidden_size = self.embeddings.embedding_dim
-            self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
-
-            self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
-            self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
-            self.spell_length = sum(self.template)
-            self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
-            self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
+            # self.tokenizer, self.model, self.congenmodel = add_special_tokens_test(self.model, self.congenmodel,
+            #                                                                        self.tokenizer,
+            #                                                                        special_tokens={'pseudo_token':self.pseudo_token})
+            # for name, param in self.model.named_parameters():
+            #     # print('not frozen params: ', name)
+            #     # if name.startswith('model.encoder.'):
+            #     param.requires_grad = False
+            # self.embeddings = get_embedding_layer(self.hparams, self.model)
+            # # set allowed vocab set
+            # self.vocab = self.tokenizer.get_vocab()
+            # self.allowed_vocab_ids = set(self.vocab[k] for k in get_vocab_by_strategy(self.hparams, self.tokenizer))
+            # self.template = tuple([int(item) for item in self.hparams.template.split(',')])
+            # # load prompt encoder
+            # self.hidden_size = self.embeddings.embedding_dim
+            # self.tokenizer.add_special_tokens({'additional_special_tokens': [self.pseudo_token]})
+            #
+            # self.pseudo_token_id = self.tokenizer.get_vocab()[self.pseudo_token]
+            # self.pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.unk_token_id
+            # self.spell_length = sum(self.template)
+            # self.prompt_encoder = PromptEncoder(self.template, self.hidden_size, self.tokenizer, self.hparams.device, self.hparams)
+            # self.prompt_encoder = self.prompt_encoder.to(self.hparams.device)
 
         self.model.to(self.hparams.device)
         self.congenmodel.to(self.hparams.device)
