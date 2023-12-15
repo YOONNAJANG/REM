@@ -11,7 +11,7 @@ Despite the striking advances in recent language generation performance, model-g
 <p align="center"><img src="rem_ex.png" width="380px" height="460px" title="REM Example"></img></p>
 
 
-
+***
 ### Setting Environment
 We trained the models under the setting of `python==3.7` and `torch==1.9.0`, with one RTX8000 GPU. 
 Thanks to open source libraries, such as [transformers](https://github.com/huggingface/transformers), [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning), [wandb](https://github.com/wandb/wandb) we built our code on their codes. We also use [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) and [Distinct-N](https://github.com/neural-dialogue-metrics/Distinct-N) metrics, and we thank the authors for releasing the codes.
@@ -51,13 +51,13 @@ As DAE relies on Stanford CoreNLP, the code below should be run in stanford-core
 
 
 ### Training models
-Uncomment the command lines in the **`train.sh`** file, to start training the model. 
+Uncomment the command lines in the **`train_model.sh`** file, to start training the model. 
 
     $ sh train_model.sh 
 
 
 ### Evaluation
-Uncomment the command lines in the **`test.sh`** file, to evaluate the model on the test set. 
+Uncomment the command lines in the **`eval_model.sh`** file, to evaluate the model on the test set. 
 
     $ sh eval_model.sh
 
