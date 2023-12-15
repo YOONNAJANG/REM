@@ -1,18 +1,9 @@
-from setproctitle import setproctitle
-setproctitle("leejeongwoo")
-
 import os, json
 import logging
 from argparse import ArgumentParser
-print(os.getcwd())
 
-import wandb
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from pytorch_lightning import LightningModule, Trainer, seed_everything
-from pytorch_lightning.plugins import DDPPlugin
-# from pytorch_lightning.strategies import DDPStrategy
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test, dataloader_chatgpt_test
+from pytorch_lightning import seed_everything
 from datasets import load_metric
 import re
 from tqdm import tqdm
@@ -29,14 +20,12 @@ os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
 logger = logging.getLogger(__file__)
 modified = 0
 
-print("Load NER tagger")
 from flair.data import Sentence
 from flair.models import SequenceTagger
 tagger = SequenceTagger.load("flair/ner-english-large")
 
 
 def main():
-
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
     parser.add_argument("--test_dataset_path", type=str, default="/home/data/ssh5131/FoCus_data/our_data/test_ours.json")
@@ -59,17 +48,14 @@ def main():
     parser.add_argument("--refine_threshold", type=float, default=0.5, help="0<=threshold<=1")
 
     args = parser.parse_args()
-    print("Using PyTorch Ver", torch.__version__)
-    print("Fix Seed:", args.random_seed)
 
     seed_everything(args.seed, workers=True)
 
     rouge_metric = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
 
-    print("Load DAE model weights")
-    from transformers import ElectraConfig, ElectraTokenizer
+    from transformers import ElectraTokenizer
     from metrics.dae_factuality.utils import ElectraDAEModel
-    dae_config_class, dae_model_class, dae_tokenizer_class = ElectraConfig, ElectraDAEModel, ElectraTokenizer
+    dae_model_class, dae_tokenizer_class = ElectraDAEModel, ElectraTokenizer
     dae_tokenizer = dae_tokenizer_class.from_pretrained(args.dae_model)
     dae_model = dae_model_class.from_pretrained(args.dae_model)
     dae_model.to(args.device)
@@ -96,7 +82,6 @@ def main():
     else:
         with open(args.threshold_dataset_path, "r", encoding="utf-8") as t_f:
             threshold_dataset = json.loads(t_f.read())['text_result']
-            print(len(threshold_dataset))
             refined_index = []
             for t_i, item in enumerate(threshold_dataset):
                 if item['refine'] == 'True':
@@ -105,9 +90,7 @@ def main():
 
     with open(args.test_dataset_path, "r", encoding="utf-8") as f:
         dataset = json.loads(f.read())
-        print(len(dataset))
         for dialogue in tqdm(dataset):
-            ID = dialogue["dialogID"]
             utterance = dialogue["utterance"]
             new_dialogue = dict()
             new_dialogue["utterance"] = list()
@@ -115,7 +98,6 @@ def main():
                 key = "dialogue" + str(i + 1)
                 if key not in utt.keys():
                     continue
-                dial = utt[key]
 
                 if args.data_type == "focus" and 'llm_gen_to_llm' not in args.test_dataset_path:
                     knowledge = utt['knowledge_candidates'][utt['knowledge_answer_index']]
@@ -157,7 +139,6 @@ def main():
                 # dae_factuality
                 pred_reply_wo_specialchar = re.sub("[^\w|\s]", "", pred_reply, 0, re.IGNORECASE)
                 pred_reply_wo_specialchar = pred_reply_wo_specialchar.strip()
-                # print(pred_reply_wo_specialchar, len(pred_reply_wo_specialchar), type(pred_reply_wo_specialchar))
                 knowledge_wo_specialchar = re.sub("[^\w|\s}]", "", knowledge, 0, re.IGNORECASE)
                 knowledge_wo_specialchar = knowledge_wo_specialchar.strip()
                 if len(pred_reply_wo_specialchar) == 0:
@@ -170,7 +151,6 @@ def main():
                 dist1 += distinct_n_sentence_level(pred_reply, 1)
                 dist2 += distinct_n_sentence_level(pred_reply, 2)
 
-                # print("TC")
                 pred_format = {'LOC': {"keyword": []},
                                'MISC': {"keyword": []},
                                'PER': {"keyword": []},
@@ -198,21 +178,18 @@ def main():
                     for entity in sentence.get_spans('ner'):
                         if len(pred_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
                                 pred_format[entity.get_label("ner").value]["keyword"]:
-                            # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
                             pred_format[entity.get_label("ner").value]["keyword"].append(entity.text)
                     sentence = Sentence(gold_reply)
                     tagger.predict(sentence)
                     for entity in sentence.get_spans('ner'):
                         if len(gold_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
                                 gold_format[entity.get_label("ner").value]["keyword"]:
-                            # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
                             gold_format[entity.get_label("ner").value]["keyword"].append(entity.text)
                     sentence = Sentence(knowledge)
                     tagger.predict(sentence)
                     for entity in sentence.get_spans('ner'):
                         if len(knowledge_format[entity.get_label("ner").value]["keyword"]) == 0 or entity.text not in \
                                 knowledge_format[entity.get_label("ner").value]["keyword"]:
-                            # format[entity.get_label("ner").value]["keyword"] = format[entity.get_label("ner").value]["keyword"].append(entity.text)
                             knowledge_format[entity.get_label("ner").value]["keyword"].append(entity.text)
 
                     for key in gold_format.keys():
@@ -224,7 +201,6 @@ def main():
                         tmp_tc += tc_ratio
                     tmp_tc = tmp_tc / 4
 
-                    # print("EC")
                     pred_k_list = []
                     gold_k_list = []
                     knowledge_k_list = []
@@ -234,9 +210,7 @@ def main():
                         knowledge_k_list.extend(knowledge_format[key]["keyword"])
 
                     knowledge_gold = list(set(knowledge_k_list) & set(gold_k_list))
-                    # print(knowledge_gold)
                     knowledge_gold_pred = list(set(knowledge_gold) & set(pred_k_list))
-                    # print(knowledge_gold_pred)
                     if len(knowledge_gold) == 0:
                         tmp_ec = 0
                     else:
@@ -245,7 +219,6 @@ def main():
                 tc += tmp_tc
                 ec += tmp_ec
                 test_data_index += 1
-
 
         chrf_result = chrf / (test_data_index + 1)
         rouge1_result = r1 / (test_data_index + 1)
@@ -258,7 +231,6 @@ def main():
         tc_result = tc / (test_data_index + 1)
         ec_result = ec / (test_data_index + 1)
         k_bleu_result = k_bleu / (test_data_index + 1)
-
 
         result_dict = dict()
         result_dict['chrF++'] = chrf_result.item()
@@ -275,8 +247,6 @@ def main():
         result_dict['refined_num'] = len(refined_index)
         result_dict['total_sample_num'] = test_data_index + 1
 
-        print(result_dict.items())
-
         test_result = dict()
         for key, value in result_dict.items():
             test_result[key] = value
@@ -286,10 +256,5 @@ def main():
         with open(args.output_dir + args.flag + '.json', 'w') as outputfile:
             json.dump(result_dict, outputfile, indent='\t')
 
-
-
-
-
 if __name__ == "__main__":
     main()
-
