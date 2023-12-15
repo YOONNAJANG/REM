@@ -4,7 +4,7 @@
 
 Official codes for the paper: **[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)**, accepted at [EMNLP 2023](https://aclanthology.org/volumes/2023.emnlp-main/).
 
-<img src="rem_ex.png" width="500px" height="700px" title="REM Example"></img>
+<img src="rem_ex.png" width="300px" height="500px" title="REM Example"></img>
 
 
 ### Setting Environment
