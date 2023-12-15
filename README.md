@@ -14,13 +14,13 @@ Despite the striking advances in recent language generation performance, model-g
 ***
 
 ### Setting Environment
-We trained the models under the setting of `python==3.7` and `torch==1.9.0`, with one RTX8000 GPU. 
+We trained the models under the setting of `python==3.8` and `torch==1.9.0`, with one RTX8000 GPU. 
 Thanks to open source libraries, such as [transformers](https://github.com/huggingface/transformers), [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning), [wandb](https://github.com/wandb/wandb) we built our code on their codes. We also use [DAE](https://github.com/tagoyal/dae-factuality?tab=readme-ov-file) and [Distinct-N](https://github.com/neural-dialogue-metrics/Distinct-N) metrics, and we thank the authors for releasing the codes.
 
 
 #### 1.Make a virtual environment
     
-    $ conda create -n ENV_NAME python=3.8
+    $ conda create -n REM python=3.8 -y
 
 #### 2.Install `pytorch==1.9.0` according to your CUDA version.
 
