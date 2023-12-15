@@ -1,6 +1,6 @@
 [Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)
 ===
-[Yoonna Jang*](https://github.com/YOONNAJANG), [Suhyune Son*](https://github.com/sonsuhyune), [Jeongwoo Lee*](https://github.com/jeongwoolee-jason), [Junyoung Son](https://github.com/rgop13), Yuna Hur, Jungwoo Lim, Hyeonseok Moon, Kisu Yang, and Heuiseok Lim (*Equal contributors)
+Codes built by [Yoonna Jang](https://github.com/YOONNAJANG), [Suhyune Son](https://github.com/sonsuhyune), [Jeongwoo Lee](https://github.com/jeongwoolee-jason), [Junyoung Son](https://github.com/rgop13)
 
 ***
 ### Official codes for the paper: <br/>**[Post-hoc Utterance Refining Method by Entity Mining for Faithful Knowledge Grounded Conversations](https://aclanthology.org/2023.emnlp-main.295.pdf)**, acceㅎpted @[EMNLP 2023](https://aclanthology.org/volumes/2023.emnlp-main/).
