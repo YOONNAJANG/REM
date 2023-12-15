@@ -52,7 +52,7 @@ def pad_dataset_data(dataset, padding):
     return dataset
 
 
-def build_input_data(args, data, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label): #gk|p|history|u' -> u
+def build_input_data(args, data_name, tokenizer, history, persona_cans, persona_ner_label, golden_knowledge, knowledge_ner_label): #gk|p|history|u' -> u
     if 'bart' in tokenizer.name_or_path:
         bos, eos = tokenizer.bos_token_id, tokenizer.eos_token_id
         dec_bos = 2  # tokenizer.decoder_start_token_id
@@ -67,18 +67,20 @@ def build_input_data(args, data, tokenizer, history, persona_cans, persona_ner_l
     knowledge_label = []
     knowledge_label.extend(knowledge_ner_label)
     history_ = [human_st] + history_[0]
-
-    if data == "focus":
+    if data_name == "focus":
         enc_sequence = gold_knowledge + persona_cans
         enc_sequence.extend(history_)
         ner_label = knowledge_label + persona_ner_label
-    elif data in ["wow", "chatgpt", "cmudog"]:
+    else :
         enc_sequence = gold_knowledge
         enc_sequence.extend(history_)
         ner_label = knowledge_label
     dec_sequence = [dec_bos] + reply + [eos]
 
     instance = dict()
+    print(enc_sequence)
+    print(ner_label)
+    breakpoint()
     if 'bart' in tokenizer.name_or_path:
         instance['input_ids'] = enc_sequence
         instance['ner_labels'] = ner_label
@@ -90,9 +92,9 @@ def build_input_data(args, data, tokenizer, history, persona_cans, persona_ner_l
     instance['lm_labels'] = dec_sequence[1:]
     return instance
 
-def dataloader_train(args, data, tokenizer, train_path, train_cache_path, dev_path, dev_cache_path, multi=False):
+def dataloader_train(args, data_name, tokenizer, train_path, train_cache_path, dev_path, dev_cache_path, multi=False):
 
-    regen_data = get_dataset_refine_data(tokenizer, data, train_dataset_path=train_path,
+    regen_data = get_dataset_refine_data(tokenizer, data_name, train_dataset_path=train_path,
                                     train_dataset_cache=train_cache_path,
                                     dev_dataset_path=dev_path,
                                     dev_dataset_cache=dev_cache_path)
@@ -106,7 +108,7 @@ def dataloader_train(args, data, tokenizer, train_path, train_cache_path, dev_pa
                 history = utt['dialog'][-(2 * args.max_history):]
                 if len(history[-1]) > 256:
                     continue
-                if data == "focus":
+                if data_name == "focus":
 
                     persona_cans = utt['persona_candidates']
                     persona_ner_label = utt['persona_ner_label']
@@ -115,10 +117,9 @@ def dataloader_train(args, data, tokenizer, train_path, train_cache_path, dev_pa
                     persona_ner_label = None
                 golden_knowledge = utt['golden_knowledge']
                 knowledge_ner_label = utt['knowledge_ner_label']
-                instance = build_input_data(args, data, tokenizer, history, persona_cans, persona_ner_label,
+                instance = build_input_data(args, data_name, tokenizer, history, persona_cans, persona_ner_label,
                                              golden_knowledge,
                                              knowledge_ner_label)
-
                 for input_name, input_array in instance.items():
                     datasets[key][input_name].append(input_array)
     if multi:
@@ -173,7 +174,7 @@ def dataloader_multi(args, tokenizer, data_list):
     train_dataset, valid_dataset = TensorDataset(*tensor_datasets["train"]), TensorDataset(*tensor_datasets["valid"])
     return train_dataset, valid_dataset
 
-def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_cache, dev_dataset_path, dev_dataset_cache):
+def get_dataset_refine_data(tokenizer, data_name, train_dataset_path, train_dataset_cache, dev_dataset_path, dev_dataset_cache):
     ner_label_map = {"B": 1, "I": 2, "O": 0, tokenizer.persona_token: 3, tokenizer.knowledge_token: 4,
                      tokenizer.bos_token: 5}
 
@@ -204,7 +205,7 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
         for name, file in file_dict.items():
             with open(file, "r", encoding="utf-8") as f:
                 dataset = json.loads(f.read())
-                if data =="cmodog":
+                if data_name =="cmodog":
                     dataset = dataset["data"]
                 dataset_enc = dict()
                 dataset_enc[name] = list()
@@ -215,7 +216,7 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
                     new_dialogue = dict()
                     new_dialogue["utterance"] = list()
                     for i, utt in enumerate(utterance):
-                        if data in ["wow", "cmudog"]:
+                        if data_name in ["wow", "cmudog"]:
                             key = "dialogue" + str(i + 1)
                         else:
                             key = "dialogue" + str(i)
@@ -223,7 +224,7 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
                             continue
                         dial = utt[key]
                         dial_new = dict()
-                        if data == "focus":
+                        if data_name == "focus":
 
                             persona_can = utt["persona_candidate"]
                             persona_ground = utt["persona_grounding"]
@@ -253,7 +254,7 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
                                             persona_ner_labels[i][start_token_id] = "B"
                                             persona_ner_labels[i][start_token_id + 1:end_token_id + 1] = ["I"] * (
                                                         end_token_id - start_token_id)
-                        elif data in ["wow", "cmudog"]:
+                        elif data_name in ["wow", "cmudog"]:
                             knowledge_sent = utt["selected_knowledge"]
 
                         ### knowledge NER
@@ -272,7 +273,7 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
                                 knowledge_ner_labels[start_token_id + 1:end_token_id + 1] = ["I"] * (
                                             end_token_id - start_token_id)
 
-                        if data == "focus":
+                        if data_name == "focus":
                             persona_can_enc_new = []
                             persona_ner_labels_enc = []
 
@@ -315,14 +316,14 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
                                     dial]
 
                         dial_new["dialog"] = dial_enc
-                        if data == "focus":
+                        if data_name == "focus":
                             dial_new["persona_grounding"] = persona_ground_enc
                             dial_new["persona_candidates"] = persona_can_enc
                             dial_new["persona_ner_label"] = persona_ner_labels_enc
                         dial_new["golden_knowledge"] = knowledge_can_enc
                         dial_new["knowledge_ner_label"] = knowledge_ner_labels_enc
                         new_dialogue["utterance"].append(dial_new)
-                    if data == "focus":
+                    if data_name == "focus":
                         persona_enc = persona_can_enc
                         new_dialogue["persona"] = persona_enc
                         new_dialogue["landmark_link"] = dialogue["landmark_link"]  ##############################
@@ -339,9 +340,9 @@ def get_dataset_refine_data(tokenizer, data, train_dataset_path, train_dataset_c
                 torch.save(dataset, dev_dataset_cache)
     return all_dataset
 
-def dataloader_data_test(args, data, tokenizer,test_dataset_path, test_dataset_cache, multi=False):
+def dataloader_data_test(args, data_name, tokenizer,test_dataset_path, test_dataset_cache, multi=False):
 
-    regen_data = get_dataset_refine_data_test(tokenizer, data, test_dataset_path=test_dataset_path,
+    regen_data = get_dataset_refine_data_test(tokenizer, data_name, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
 
 
@@ -360,7 +361,7 @@ def dataloader_data_test(args, data, tokenizer,test_dataset_path, test_dataset_c
                     persona_ner_label = None
                 golden_knowledge = utt['golden_knowledge']
                 knowledge_ner_label = utt['knowledge_ner_label']
-                instance = build_input_data(args,data, tokenizer, history, persona_cans, persona_ner_label,
+                instance = build_input_data(args,data_name, tokenizer, history, persona_cans, persona_ner_label,
                                              golden_knowledge,
                                              knowledge_ner_label)
                 for input_name, input_array in instance.items():
@@ -382,7 +383,7 @@ def dataloader_data_test(args, data, tokenizer,test_dataset_path, test_dataset_c
     test_dataset = TensorDataset(*tensor_datasets["test"])
     return test_dataset
 
-def get_dataset_refine_data_test(tokenizer, data, test_dataset_path, test_dataset_cache):
+def get_dataset_refine_data_test(tokenizer, data_name, test_dataset_path, test_dataset_cache):
     ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
 
     def tokenize(obj):
@@ -411,7 +412,7 @@ def get_dataset_refine_data_test(tokenizer, data, test_dataset_path, test_datase
         for name, file in file_dict.items():
             with open(file, "r", encoding="utf-8") as f:
                 dataset = json.loads(f.read())
-                if data == "cmudog":
+                if data_name == "cmudog":
                     dataset = dataset["data"]
                 dataset_enc = dict()
                 dataset_enc[name] = list()
@@ -421,14 +422,14 @@ def get_dataset_refine_data_test(tokenizer, data, test_dataset_path, test_datase
                     new_dialogue = dict()
                     new_dialogue["utterance"] = list()
                     for i, utt in enumerate(utterance):
-                        if data in ["wow", "cmudog", "chatgpt"]:
+                        if data_name in ["wow", "cmudog", "chatgpt"]:
                             key = "dialogue" + str(i + 1)
                         else:
                             key = "dialogue" + str(i + 1)
                         dial = utt[key]
                         dial_new = dict()
 
-                        if data == "focus":
+                        if data_name == "focus":
                             persona_can = utt["persona_candidate"]
                             persona_ground = utt["persona_grounding"]
                             knowledge_can = utt["knowledge_candidates"]
@@ -475,7 +476,7 @@ def get_dataset_refine_data_test(tokenizer, data, test_dataset_path, test_datase
                                 knowledge_ner_labels[start_token_id + 1:end_token_id + 1] = ["I"] * (
                                             end_token_id - start_token_id)
 
-                        if data == "focus":
+                        if data_name == "focus":
                             persona_can_enc_new = []
                             persona_ner_labels_enc = []
                             for (can, ner_label) in zip(persona_can_enc, persona_ner_labels):
@@ -510,7 +511,7 @@ def get_dataset_refine_data_test(tokenizer, data, test_dataset_path, test_datase
                         assert len(knowledge_can_enc) == len(knowledge_ner_labels_enc)
 
                         dial_new["dialog"] = dial_enc
-                        if data == "focus":
+                        if data_name == "focus":
                             dial_new["persona_grounding"] = persona_ground_enc
                             dial_new["persona_candidates"] = persona_can_enc
                             dial_new["persona_ner_label"] = persona_ner_labels_enc
@@ -519,7 +520,7 @@ def get_dataset_refine_data_test(tokenizer, data, test_dataset_path, test_datase
                         new_dialogue["utterance"].append(dial_new)
                     new_dialogue["dialogID"] = ID
 
-                    if data == "focus":
+                    if data_name == "focus":
                         persona_enc = persona_can_enc
                         new_dialogue["persona"] = persona_enc
                         new_dialogue["landmark_link"] = dialogue["landmark_link"]
