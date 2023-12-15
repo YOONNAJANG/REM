@@ -338,7 +338,7 @@ def get_dataset_refine_data(tokenizer, data_name, train_dataset_path, train_data
                 torch.save(dataset, dev_dataset_cache)
     return all_dataset
 
-def dataloader_data_test(args, data_name, tokenizer,test_dataset_path, test_dataset_cache, multi=False):
+def dataloader_test(args, data_name, tokenizer,test_dataset_path, test_dataset_cache, multi=False):
 
     regen_data = get_dataset_refine_data_test(tokenizer, data_name, test_dataset_path=test_dataset_path,
                                     test_dataset_cache=test_dataset_cache)
@@ -351,7 +351,7 @@ def dataloader_data_test(args, data_name, tokenizer,test_dataset_path, test_data
             utterance = data['utterance']
             for i, utt in enumerate(utterance):
                 history = utt['dialog'][-(2 * args.max_history):]
-                if data == "focus":
+                if data_name == "focus":
                     persona_cans = utt['persona_candidates']
                     persona_ner_label = utt['persona_ner_label']
                 else:

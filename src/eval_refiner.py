@@ -1,19 +1,16 @@
-from setproctitle import setproctitle
-setproctitle("leejeongwoo")
 
 import os, json
 import logging
 from argparse import ArgumentParser
-print(os.getcwd())
+
 
 import wandb
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.plugins import DDPPlugin
-# from pytorch_lightning.strategies import DDPStrategy
-from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_focus_test, dataloader_wow_test, add_special_tokens_, dataloader_cmudog_test, dataloader_chatgpt_test
-from datasets import load_metric
+from data_utils_refine import add_special_tokens_test, special_tokens_focus, dataloader_test, add_special_tokens_
+
 import re
 from tqdm import tqdm
 
@@ -62,42 +59,16 @@ class Model(LightningModule):
 
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
         from transformers import BartForConditionalGeneration
-        if self.hparams.mode == "gen_exp":
-            if "bart" in self.hparams.pretrained_model:
-                from refiner_modules import BartEncDec_NER_explicit as model
-                from transformers import BartConfig as config
-                from transformers import BartForConditionalGeneration as congenmodel
-            else:
-                from refiner_modules import T5EncDec_NER_explicit as model
-                from transformers import T5Config as config
-                from transformers import T5ForConditionalGeneration as congenmodel
-        elif self.hparams.mode == "gen_imp":
-            if "bart" in self.hparams.pretrained_model:
-                from refiner_modules import BartEncDec_NER_implicit as model
-                from transformers import BartConfig as config
-                from transformers import BartForConditionalGeneration as congenmodel
-            else:
-                from refiner_modules import T5EncDec_NER_implicit as model #NotImplemented
-                from transformers import T5Config as config
-                from transformers import T5ForConditionalGeneration as congenmodel
-        elif self.hparams.mode == "original":
-            if "bart" in self.hparams.pretrained_model:
-                from transformers import BartForConditionalGeneration as model
-                from transformers import BartForConditionalGeneration as congenmodel
-            else:
-                from transformers import T5ForConditionalGeneration as model
-                from transformers import T5ForConditionalGeneration as congenmodel
-        elif self.hparams.mode == "ner":
-            if "bart" in self.hparams.pretrained_model:
-                from refiner_modules import BartEncDec as model
-                from transformers import BartConfig as config
-                from transformers import BartForConditionalGeneration as congenmodel
-            else:
-                from refiner_modules import T5EncDec as model
-                from transformers import T5Config as config
-                from transformers import T5ForConditionalGeneration as congenmodel
+
+        if "bart" in self.hparams.pretrained_model:
+            from refiner_modules import BartEncDec as model
+            from transformers import BartConfig as config
+            from transformers import BartForConditionalGeneration as congenmodel
         else:
-            raise NotImplementedError
+            from refiner_modules import T5EncDec as model
+            from transformers import T5Config as config
+            from transformers import T5ForConditionalGeneration as congenmodel
+
 
         self.config = config.from_pretrained(self.hparams.pretrained_model)
         self.model = model.from_pretrained(self.hparams.pretrained_model, config=self.config)
@@ -617,20 +588,8 @@ class Model(LightningModule):
         return self.epoch_end(outputs, state='test')
 
     def dataloader(self):
-        test_dataset = None
-
-        if self.hparams.data_type == "focus":
-            test_dataset = dataloader_focus_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
+        test_dataset = dataloader_test(self.hparams, self.hparams.data_type, self.tokenizer, self.hparams.test_dataset_path,
                                                  self.hparams.test_dataset_cache)
-        elif self.hparams.data_type == "wow":
-            test_dataset = dataloader_wow_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
-                                               self.hparams.test_dataset_cache)
-        elif self.hparams.data_type == "cmudog":
-            test_dataset = dataloader_cmudog_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
-                                               self.hparams.test_dataset_cache)
-        elif self.hparams.data_type == "chatgpt":
-            test_dataset = dataloader_chatgpt_test(self.hparams, self.tokenizer, self.hparams.test_dataset_path,
-                                               self.hparams.test_dataset_cache)
 
         return test_dataset
 
@@ -643,10 +602,10 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog, chatgpt}")
-    parser.add_argument("--test_dataset_path", type=str, default="/home/data/ssh5131/FoCus_data/our_data/test_ours.json",
+    parser.add_argument("--test_dataset_path", type=str, default="data/focus/test_ours.json",
                         help="Path or url of the dataset. If empty download from S3.")
     parser.add_argument("--test_dataset_cache", type=str,
-                        default='/home/data/ssh5131/FoCus_data/our_data/focus_cache.tar.gz',
+                        default='data/focus/focus_cache.tar.gz',
                         help="Path or url of the dataset cache")
     parser.add_argument("--flag", type=str, default="", help="add description of the output file")
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
