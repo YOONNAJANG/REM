@@ -127,7 +127,7 @@ def build_input_wow(args, tokenizer, history, golden_knowledge, knowledge_ner_la
     #     enc_sequence = [bos] + [pseudo_token_id] * template[0] + gold_knowledge[1:] + [pseudo_token_id] * template[
     #         1] + persona_cans + [pseudo_token_id] * template[2]
     #     enc_sequence.extend(history_)
-    #     ner_label = [-1] + [-1] * template[0] + knowledge_label[1:] + [-1] * template[1] + persona_ner_label + [-1] * \ ##todo
+    #     ner_label = [-1] + [-1] * template[0] + knowledge_label[1:] + [-1] * template[1] + persona_ner_label + [-1] * \
     #                 template[2]
 
     dec_sequence = [dec_bos] + reply + [eos]
@@ -254,10 +254,10 @@ def build_input_cmudog(args, tokenizer, history, golden_knowledge, knowledge_ner
 
 def dataloader_focus(args, tokenizer, multi=False):
 
-    train_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/train.json"
-    train_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/our_train_cache.tar.gz"
-    dev_dataset_path = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/dev.json"
-    dev_dataset_cache = "/home/data/ssh5131/focus_modeling/for_refiner_v2/focus/our_dev_cache.tar.gz"
+    train_dataset_path = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/train_beam5_09k_B_B_with_ner.json"
+    train_dataset_cache = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/train_beam5_09k_B_B_with_ner_cache.tar.gz"
+    dev_dataset_path = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/valid_beam5_09k_B_B_with_ner.json"
+    dev_dataset_cache = "/home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/valid_beam5_09k_B_B_with_ner_cache.tar.gz"
 
     regen_data = get_dataset_refine_focus(tokenizer, train_dataset_path=train_dataset_path,
                                     train_dataset_cache=train_dataset_cache,
@@ -1510,7 +1510,6 @@ def get_dataset_refine_chatgpt_test(tokenizer, test_dataset_path, test_dataset_c
     ner_label_map = {"B":1, "I":2,"O":0, tokenizer.persona_token:3,tokenizer.knowledge_token:4, tokenizer.bos_token:5} ### knowledge_st, persona_st, bos
 
     token_char = tokenizer.convert_ids_to_tokens(5)[0]
-    # print(token_char)
     def tokenize(obj):
         if isinstance(obj, str):
             return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
@@ -1539,21 +1538,16 @@ def get_dataset_refine_chatgpt_test(tokenizer, test_dataset_path, test_dataset_c
                 print(len(dataset))
                 for dialogue in dataset:
                     ID = dialogue["dialogID"]
-                    # persona = dialogue["persona"]
-                    # knowledge = dialogue["knowledge"]
                     utterance = dialogue["utterance"]
                     new_dialogue = dict()
                     new_dialogue["utterance"] = list()
                     for i, utt in enumerate(utterance):
-                        # print(ID, utt.keys())
-
                         key = "dialogue" + str(i+1)
                         if key not in utt.keys():
                             continue
                         dial = utt[key]
                         dial_new = dict()
                         knowledge_sent = utt["selected_knowledge"]
-                        # persona_can_enc = [tokenizer(sentence, add_special_tokens=False) for sentence in persona]
 
                         ############################# knowledge NER ############################# knowledge NER
                         knowledge_can_enc = tokenizer(knowledge_sent, add_special_tokens=False)
@@ -1573,13 +1567,6 @@ def get_dataset_refine_chatgpt_test(tokenizer, test_dataset_path, test_dataset_c
                                 knowledge_ner_labels[start_token_id + 1:end_token_id + 1] = ["I"] * (
                                         end_token_id - start_token_id)
 
-                        # persona_can_enc_new = []
-                        # for can in persona_can_enc:
-                        #     persona_can_enc_new.append(
-                        #         [tokenizer.convert_tokens_to_ids(tokenizer.persona_token)] + can['input_ids'])
-                        #
-                        #
-                        # persona_can_enc = list(chain(*persona_can_enc_new))
                         knowledge_can_enc = [tokenizer.bos_token_id,
                                              tokenizer.convert_tokens_to_ids(tokenizer.knowledge_token)] + \
                                             knowledge_can_enc['input_ids']
@@ -1595,39 +1582,22 @@ def get_dataset_refine_chatgpt_test(tokenizer, test_dataset_path, test_dataset_c
                             pred = utt['chatgpt_bad_response']
 
                         dial[-2] = pred
-
-
                         dial_enc = [tokenizer(sentence.strip(), add_special_tokens=False)['input_ids'] for sentence in
                                     dial]
-
                         check = True
-
                         for i, d in enumerate(dial_enc):
-
                             if len(d) > 1024:
                                 check = False
                         if check == False:
                             continue
 
-
                         assert len(knowledge_can_enc) == len(knowledge_ner_labels_enc)
-
-
-
                         dial_new["dialog"] = dial_enc
-                        # dial_new["persona_grounding"] = persona_ground_enc
-                        # dial_new["persona_candidates"] = persona_can_enc
-                        # dial_new["persona_ner_label"] = persona_ner_labels_enc
                         dial_new["golden_knowledge"] = knowledge_can_enc
                         dial_new["knowledge_ner_label"] = knowledge_ner_labels_enc
-
                         new_dialogue["utterance"].append(dial_new)
-                    # persona_enc = persona_can_enc
-                    # # knowledge_enc = [tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sentence.strip())) for sentence in knowledge]
-                    # new_dialogue["persona"] = persona_enc
-                    # new_dialogue["knowledge"] = knowledge_enc
+
                     new_dialogue["dialogID"] = ID
-                    # new_dialogue["landmark_link"] = dialogue["landmark_link"]  ##############################
                     dataset_enc[name].append(new_dialogue)
 
             logger.info("Tokenize and encode the dataset")

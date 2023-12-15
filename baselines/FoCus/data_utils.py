@@ -680,7 +680,7 @@ def get_testdata_loaders(args, tokenizer):
     logger.info("Build inputs and labels")
     datasets = {"test": defaultdict(list)}
     for dataset_name, dataset in focus.items():
-        print(dataset_name, len(dataset))
+        print(dataset_name, len(dataset), "dialogues")
         for dialog in dataset:
             ID = dialog["dialogID"]
             persona = dialog['persona']
@@ -863,7 +863,7 @@ def get_data_for_refine_loaders(args, barttokenizer, berttokenizer, file):
     """ Prepare the dataset for training and evaluation """
     focus = get_dataset_only_test(barttokenizer, args.test_dataset_path, args.test_dataset_cache)
     for dataset_name, dataset in focus.items():
-        print(dataset_name, len(dataset))
+        print(dataset_name, len(dataset), "dialogues")
         persona_list = []
         prev_utterance_list = []
         for dial_idx, dialog in enumerate(dataset):

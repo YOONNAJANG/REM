@@ -47,8 +47,7 @@ class Model(LightningModule):
         self.metric = load_metric("seqeval")
 
         self.pseudo_token = self.hparams.pseudo_token
-        
-        
+
         print("Load DAE model weights")
         from transformers import ElectraConfig, ElectraTokenizer
         from metrics.dae_factuality.utils import ElectraDAEModel
@@ -138,6 +137,8 @@ class Model(LightningModule):
         self.congenmodel.to(self.hparams.device)
         self.model.eval()
         self.congenmodel.eval()
+        self.human_token_id = self.tokenizer.convert_tokens_to_ids([self.tokenizer.human_token])[0]
+
 
         if len(self.hparams.checkpoint) > 0:
             checkpoint = torch.load(self.hparams.checkpoint)['state_dict']
@@ -241,7 +242,7 @@ class Model(LightningModule):
                 knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
         
         before_refine = input_text[0].split("<human>")[-1]
-        
+
         # ROUGE-L
         input_kg_rougeL = self.rouge_metric.score(before_refine, knowledge)['rougeL'].fmeasure
         
@@ -381,6 +382,10 @@ class Model(LightningModule):
         out_ids = out_ids[:, :self.hparams.max_length]
         out_ids = self.tokenizer.batch_decode(out_ids, skip_special_tokens=True)
         out_ids = [out_id[:self.hparams.max_length] for out_id in out_ids]
+        only_input = input_ids.tolist()[0]
+        human_idx = only_input.index(self.human_token_id)
+        only_input = only_input[human_idx:]
+        only_input = self.tokenizer.decode(only_input, skip_special_tokens=True)
 
 
         knoweldge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
@@ -413,6 +418,7 @@ class Model(LightningModule):
         result['y_true_text'] = reply  # tokenize!!!
         result['y_pred_text'] = out_ids
         result['input_text'] = input_text
+        result['only_input'] = only_input
         result['ner_results'] = ner_results
         result['knowledge'] = knowledge
         result['refine'] = str(is_refine)
@@ -429,6 +435,8 @@ class Model(LightningModule):
             text_dict['y_pred_text'] = i['y_pred_text']
             text_dict['input_text'] = i['input_text']
             text_dict['knowledge'] = i['knowledge']
+            text_dict['refine'] = i['refine']
+            text_dict['only_input'] = i['only_input']
             if i['ner_results'] is not None:
                 text_dict['ner_results'] = i['ner_results']
 
@@ -463,7 +471,7 @@ class Model(LightningModule):
         dist2 = 0
         tc = 0
         ec = 0
-        k_bleu = 0
+        k_overlap = 0
         bleu_metric = load_metric("sacrebleu")
         chrf_metric = CHRFScore()
 
@@ -476,6 +484,11 @@ class Model(LightningModule):
             gold_reply = test_data['y_true_text']
             pred_reply = test_data['y_pred_text']
             input = test_data['input_text']
+            refine = test_data['refine']
+            only_input = test_data['only_input']
+
+            if self.hparams.only_score_refine == True and refine == 'False':
+                continue
 
             if 'ner_results' in test_data.keys():
 
@@ -490,6 +503,8 @@ class Model(LightningModule):
             pred_dict['gold'] = gold_reply
             pred_dict['pred'] = pred_reply
             pred_dict['knoweldge'] = knowledge
+            pred_dict['refine'] = refine
+            pred_dict['only_input'] = only_input
 
             result_list.append(pred_dict)
 
@@ -514,12 +529,20 @@ class Model(LightningModule):
             else:
                 bleu += bleu_metric.compute(predictions=pred_reply, references=[[gold_reply]])['score']
 
-            # knowledge overlapping (knowledge-BLEU)
+            # knowledge overlapping (knowledge-rouge-L)
+            # if self.hparams.num_return_sequences > 1:
+            #     for pred_reply_item in pred_reply:
+            #         r = self.rouge_metric.score(pred_reply_item, gold_reply)
+            #         k_overlap += r['rougeL'].fmeasure
+            # else:
+            #     r = self.rouge_metric.score(pred_reply[0], gold_reply)
+            #     k_overlap += r['rougeL'].fmeasure
+
             if self.hparams.num_return_sequences > 1:
                 for pred_reply_item in pred_reply:
-                    k_bleu += bleu_metric.compute(predictions=[pred_reply_item], references=[[knowledge]])['score']
+                    k_overlap += bleu_metric.compute(predictions=[pred_reply_item], references=[[gold_reply]])['score']
             else:
-                k_bleu += bleu_metric.compute(predictions=pred_reply, references=[[knowledge]])['score']
+                k_overlap += bleu_metric.compute(predictions=pred_reply, references=[[gold_reply]])['score']
 
             # ChrF++
             if self.hparams.num_return_sequences > 1:
@@ -646,6 +669,10 @@ class Model(LightningModule):
             tc += tmp_tc
             ec += tmp_ec
 
+        if self.hparams.only_score_refine == True:
+            test_data_index = modified - 1
+            print('only refine')
+
 
         chrf_result = chrf / ((test_data_index + 1) * self.hparams.num_return_sequences)
         rouge1_result = r1 / ((test_data_index + 1) * self.hparams.num_return_sequences)
@@ -658,7 +685,7 @@ class Model(LightningModule):
         dist2_result = dist2 / ((test_data_index + 1) * self.hparams.num_return_sequences)
         tc_result = tc / (test_data_index + 1)
         ec_result = ec / (test_data_index + 1)
-        k_bleu_result = k_bleu / ((test_data_index + 1) * self.hparams.num_return_sequences)
+        k_overlap_result = k_overlap / ((test_data_index + 1) * self.hparams.num_return_sequences)
 
 
         if self.hparams.mode != "original":
@@ -680,7 +707,7 @@ class Model(LightningModule):
         result_dict['dae_result'] = dae_result
         result_dict['dist1_result'] = dist1_result
         result_dict['dist2_result'] = dist2_result
-        result_dict['k_bleu'] = k_bleu_result
+        result_dict['k_overlap'] = k_overlap_result
 
         if self.hparams.mode != "original":
             result_dict['ner_acc'] = ner_acc_result
@@ -729,7 +756,7 @@ class Model(LightningModule):
 def main():
 
     parser = ArgumentParser()
-    parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
+    parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog, chatgpt}")
     parser.add_argument("--test_dataset_path", type=str, default="/home/data/ssh5131/FoCus_data/our_data/test_ours.json",
                         help="Path or url of the dataset. If empty download from S3.")
     parser.add_argument("--test_dataset_cache", type=str,
@@ -755,14 +782,15 @@ def main():
                         help="Nucleus filtering (top-p) before sampling, default=1.0")
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for 1 generated result")
-    parser.add_argument("--output_dir", type=str, default="/home/data/ssh5131/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--dae_model", type=str, default="/home/data/ssh5131/focus_modeling/model/dae_w_syn_hallu", help="pre-trained dae model directory")
+    parser.add_argument("--output_dir", type=str, default="/home/data/yoonna/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
+    parser.add_argument("--dae_model", type=str, default="/home/data/yoonna/Refiner/metrics/dae_factuality/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
     parser.add_argument("--do_sample", type=bool, default=True)
     parser.add_argument("--knowledge_select", type=str, default="None", help="{None, DPR, BM25, TFIDF}")
     parser.add_argument("--refine_threshold", type=float, default=0.0, help="0<=threshold<=1")
+    parser.add_argument("--only_score_refine", type=bool, default=False)
 
 
     #for p-tuning

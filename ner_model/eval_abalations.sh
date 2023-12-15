@@ -54,25 +54,33 @@
 
 ####BART base ner focus
 ###before refine
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch13-01.2539.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=0 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch10-01.2185.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
 #--num_beams 1 --refine_threshold 0.0 --seed 644128 --flag bart_base_focus_ner_before_refine > eval_logs/bart_base_focus_ner_before_refine.out &
 #
 ###b10
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch13-01.2539.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch10-01.2185.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
 #--num_beams 10 --refine_threshold 1.0 --seed 644128 --flag bart_base_focus_ner_refine_b10 > eval_logs/bart_base_focus_ner_refine_b10.out &
 #
 ###b1
-#CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch13-01.2539.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=2 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch10-01.2185.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
 #--num_beams 1 --refine_threshold 1.0 --seed 644128 --flag bart_base_focus_ner_refine_b1 > eval_logs/bart_base_focus_ner_refine_b1.out &
 #
 ###b5
-#CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch13-01.2539.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=3 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/wo_prompt_100/epoch10-01.2185.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/wo_prompt_100/ \
 #--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_base_focus_ner_refine_b5 > eval_logs/bart_base_focus_ner_refine_b5.out &
-
+#
 
 ########################################################################################################################
 ##############################################BART-LARGE#################################################################
@@ -86,18 +94,18 @@
 #--num_beams 10 --refine_threshold 1.0 --seed 644128 --flag bart_large_wow_ner_refine_b10 > eval_logs/bart_large_wow_ner_refine_b10.out &
 
 ###b1
-#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type wow --pretrained_model facebook/bart-large --mode ner \
+#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type wow --pretrained_model facebook/bart-large --mode ner \
 #--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner.json \
 #--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner_cache.tar.gz \
 #--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wow_wo_prompt_100/epoch5-02.2709.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wow_wo_prompt_100/ \
 #--num_beams 1 --refine_threshold 1.0 --seed 644128 --flag bart_large_wow_ner_refine_b1 > eval_logs/bart_large_wow_ner_refine_b1.out &
 
-##b5
-CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type wow --pretrained_model facebook/bart-large --mode ner \
---test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner.json \
---test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner_cache.tar.gz \
---checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wow_wo_prompt_100/epoch5-02.2709.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wow_wo_prompt_100/ \
---num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_large_wow_ner_refine_b5 > eval_logs/bart_large_wow_ner_refine_b5.out &
+###b5
+#CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type wow --pretrained_model facebook/bart-large --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner_cache.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wow_wo_prompt_100/epoch5-02.2709.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wow_wo_prompt_100/ \
+#--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_large_wow_ner_refine_b5 > eval_logs/bart_large_wow_ner_refine_b5.out &
 
 ####BART large ner cmudog
 ###b10
@@ -115,22 +123,28 @@ CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type wow --pretrained
 #--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_cmudog_wo_prompt_100/epoch10-02.8730.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_cmudog_wo_prompt_100/ \
 #--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_large_cmu_ner_refine_b5 > eval_logs/bart_large_cmu_ner_refine_b5.out &
 
-####BART large ner focus
+#####BART large ner focus
 ###b10
-#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-large --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/epoch8-01.2570.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-large --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/epoch8-01.0976.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/ \
 #--num_beams 10 --refine_threshold 1.0 --seed 644128 --flag bart_large_focus_ner_refine_b10 > eval_logs/bart_large_focus_ner_refine_b10.out &
 #
 ###b1
-#CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-large --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/epoch8-01.2570.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/ \
+#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-large --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/epoch8-01.0976.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/ \
 #--num_beams 1 --refine_threshold 1.0 --seed 644128 --flag bart_large_focus_ner_refine_b1 > eval_logs/bart_large_focus_ner_refine_b1.out &
-#
-###b5
-#CUDA_VISIBLE_DEVICES=7 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-large --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/epoch8-01.2570.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/ \
-#--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_large_focus_ner_refine_b5 > eval_logs/bart_large_focus_ner_refine_b5.out &
 
+###b5
+#CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-large --mode ner \
+#--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+#--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+#--checkpoint /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/epoch8-01.0976.ckpt --output_dir /home/data/yoonna/Refiner/output/ner/bart_large_wo_prompt_100/ \
+#--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_large_focus_ner_refine_b5 > eval_logs/bart_large_focus_ner_refine_b5.out &
+#
 
 ########################################################################################################################
 ################################################T5-BASE#################################################################
@@ -255,10 +269,12 @@ CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type wow --pretrained
 #--checkpoint /home/data/yoonna/Refiner/output/woner/wow_wo_prompt_100/epoch6-02.4663.ckpt --output_dir /home/data/yoonna/Refiner/output/woner/wow_wo_prompt_100/ \
 #--num_beams 1 --refine_threshold 1.0 --seed 644128 --flag bart_base_wow_ner_refine_b1 > eval_logs/woner_bart_base_wow_ner_refine_b1.out &
 #
-###b5
-#CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type wow --pretrained_model facebook/bart-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/new_test_random_split.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/wow_v3/our_test_random_cache.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/woner/wow_wo_prompt_100/epoch6-02.4663.ckpt --output_dir /home/data/yoonna/Refiner/output/woner/wow_wo_prompt_100/ \
-#--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_base_wow_ner_refine_b5 > eval_logs/woner_bart_base_wow_ner_refine_b5.out &
+##b5
+CUDA_VISIBLE_DEVICES=5 nohup python eval_refiner.py --data_type wow --pretrained_model facebook/bart-base --mode ner \
+--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner.json \
+--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/wow/output/2023_emnlp/bart_base/test_random_split_beam5_09k_B_B_with_ner_cache.tar.gz \
+--checkpoint /home/data/ssh5131/focus_modeling/regen_add_ner_v2/new_wo_NER/wow_base/gen1_ner0_E100_nops/epoch8-02.4147.ckpt --output_dir /home/data/yoonna/Refiner/output/woner/wow_wo_prompt_100/ \
+--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_base_wow_ner_refine_b5 > eval_logs/woner_bart_base_wow_ner_refine_b5.out &
 
 ####BART base ner cmudog
 ###b10
@@ -288,10 +304,12 @@ CUDA_VISIBLE_DEVICES=1 nohup python eval_refiner.py --data_type wow --pretrained
 #--num_beams 1 --refine_threshold 1.0 --seed 644128 --flag bart_base_focus_ner_refine_b1 > eval_logs/woner_bart_base_focus_ner_refine_b1.out &
 #
 ###b5
-#CUDA_VISIBLE_DEVICES=4 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner --test_dataset_path /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/test.json --test_dataset_cache /home/data/ssh5131/focus_modeling/for_refiner_v2/focus/ours_cache_test.tar.gz \
-#--checkpoint /home/data/yoonna/Refiner/output/woner/wo_prompt_100/epoch11-01.2375.ckpt --output_dir /home/data/yoonna/Refiner/output/woner/wo_prompt_100/ \
-#--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_base_focus_ner_refine_b5 > eval_logs/woner_bart_base_focus_ner_refine_b5.out &
-#
+CUDA_VISIBLE_DEVICES=6 nohup python eval_refiner.py --data_type focus --pretrained_model facebook/bart-base --mode ner \
+--test_dataset_path /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner.json \
+--test_dataset_cache /home/data/leejeongwoo/projects/focus/Refiner/baselines/FoCus/output/2023_emnlp/bart_base/test_beam5_09k_B_B_with_ner_cache_test.tar.gz \
+--checkpoint /home/data/yoonna/Refiner/output/woner/wo_prompt_100/epoch9-01.2141.ckpt --output_dir /home/data/yoonna/Refiner/output/woner/wo_prompt_100/ \
+--num_beams 5 --refine_threshold 1.0 --seed 644128 --flag bart_base_focus_ner_refine_b5 > eval_logs/woner_bart_base_focus_ner_refine_b5.out &
+
 
 ########################################################################################################################
 ##############################################BART-LARGE#################################################################

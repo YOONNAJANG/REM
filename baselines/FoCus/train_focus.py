@@ -13,7 +13,7 @@ from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
-from baselines.FoCus.data_utils import get_data_loaders, add_special_tokens_, special_tokens
+from data_utils import get_data_loaders, add_special_tokens_, special_tokens
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score, confusion_matrix
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ":16:8"
@@ -28,7 +28,7 @@ class Model(LightningModule):
 
         if self.hparams.model_name == 'BART':
             from transformers import BartTokenizer
-            from baselines.FoCus.cusgen_generate import Bart_pkgen as bartmodel
+            from cusgen_generate import Bart_pkgen as bartmodel
             self.tokenizer = BartTokenizer.from_pretrained(self.hparams.model_path)
             self.model = bartmodel.from_pretrained(self.hparams.model_path)
             self.model.to(self.hparams.device)
@@ -38,7 +38,7 @@ class Model(LightningModule):
 
         elif self.hparams.model_name == 'T5':
             from transformers import T5Tokenizer
-            from baselines.FoCus.cusgen_generate import T5_pkgen as t5model
+            from cusgen_generate import T5_pkgen as t5model
             self.tokenizer = T5Tokenizer.from_pretrained(self.hparams.model_path)
             self.model = t5model.from_pretrained(self.hparams.model_path)
             self.model.to(self.hparams.device)
@@ -48,7 +48,7 @@ class Model(LightningModule):
 
         elif self.hparams.model_name == 'LED':
             from transformers import LEDTokenizer
-            from baselines.FoCus.cusgen_generate import LED_pkgen as ledmodel
+            from cusgen_generate import LED_pkgen as ledmodel
             self.tokenizer = LEDTokenizer.from_pretrained(self.hparams.model_path)
             self.model = ledmodel.from_pretrained(self.hparams.model_path)
             self.model.to(self.hparams.device)
@@ -58,7 +58,7 @@ class Model(LightningModule):
 
         elif self.hparams.model_name == 'transformer-encdec':
             from transformers import BartTokenizer, BartConfig
-            from baselines.FoCus.cusgen_generate import BARTPK_ctxt as bartmodel
+            from cusgen_generate import BARTPK_ctxt as bartmodel
             self.tokenizer = BartTokenizer.from_pretrained(self.hparams.model_path)
             self.model_config = BartConfig.from_pretrained(self.hparams.model_path)
             self.model = bartmodel(self.model_config)

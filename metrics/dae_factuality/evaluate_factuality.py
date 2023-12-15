@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import sys
 #print(os.getcwd())
-sys.path.append('/home/data/ssh5131/code/Refiner/metrics/dae_factuality')
+sys.path.append('/home/data/yoonna/Refiner/metrics/dae_factuality')
 import utils
 from sklearn.utils.extmath import softmax
 from preprocessing_utils import get_tokens, get_relevant_deps_and_context
