@@ -28,8 +28,6 @@ def get_tokens(input_text):
     tokenized_json = nlp.annotate(input_text, properties={'annotators': 'tokenize', 'outputFormat': 'json',
                                                           'ssplit.isOneSentence': True})
     tokenized_text = []
-    # print('input text: ',input_text)
-    # print('tokenized json: ', tokenized_json)
     for tok in tokenized_json['tokens']:
         tokenized_text.append(tok['word'])
     tokenized_text = ' '.join(tokenized_text)
@@ -56,9 +54,9 @@ def get_relevant_deps_and_context(line, args):
 
 
 def get_sentence_level_annotations(input, gt, gen, args):
-    inp_tok, inp_pos, input_dep = get_relevant_deps_and_context(input, args)
-    gt_tok, gt_pos, gt_dep = get_relevant_deps_and_context(gt, args)
-    gen_tok0, gen_pos0, gen_dep0 = get_relevant_deps_and_context(gen[0], args)
+    inp_tok, _, input_dep = get_relevant_deps_and_context(input, args)
+    gt_tok, _, gt_dep = get_relevant_deps_and_context(gt, args)
+    gen_tok0, _, gen_dep0 = get_relevant_deps_and_context(gen[0], args)
 
     gen_tokens = []
     gen_postags = []

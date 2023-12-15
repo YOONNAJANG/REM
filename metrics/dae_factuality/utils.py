@@ -1,14 +1,11 @@
 from torch import nn
-import torch, os, logging, csv, copy, math
+import torch, os, logging, csv
 from transformers import BertPreTrainedModel, BertModel
 from transformers import ElectraPreTrainedModel, ElectraModel
 from torch.utils.data import TensorDataset
 from torch.nn import CrossEntropyLoss
 
 logger = logging.getLogger(__name__)
-import sys
-# import utils
-# sys.modules['train_importance_utils'] = utils
 
 class BERTBasicModel(BertPreTrainedModel):
     def __init__(self, config):
@@ -276,7 +273,6 @@ def convert_examples_to_features_bert(examples, tokenizer, max_length=512, pad_t
 
         if len(tokens_input) > max_length:
             rejected_ex += 1
-            # tokens_input = tokens_input[:max_length]
             continue
 
         if num_dependencies == 0:
@@ -316,7 +312,7 @@ def load_and_cache_examples_bert(args, tokenizer, evaluate):
 
     model_type = args.model_type
 
-    if 'bert' in args.model_type:  # hack
+    if 'bert' in args.model_type:
         model_type = 'bert'
 
     if 'electra' in args.model_type:
