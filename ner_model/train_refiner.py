@@ -1,5 +1,5 @@
 from setproctitle import setproctitle
-setproctitle("yoonna")
+setproctitle("suhyune")
 import sys
 
 import os
@@ -102,7 +102,7 @@ class Model(LightningModule):
         #     if len(self.hparams.target_word_to_init) > 0:
         #         init_prompt_embedding(self.pseudo_token_id, self.hparams.target_word_to_init, self.model, self.tokenizer)
 
-        init_focus_tokens_embedding(special_tokens_focus, self.model, self.tokenizer)
+        # init_focus_tokens_embedding(special_tokens_focus, self.model, self.tokenizer)
 
 
         if len(self.hparams.checkpoint) > 0:
