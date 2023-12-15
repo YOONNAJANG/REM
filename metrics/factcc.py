@@ -15,21 +15,8 @@
 # limitations under the License.
 
 from __future__ import absolute_import, division, print_function, unicode_literals
-
-# import json
-# import logging
-# import math
-# import os
-# import sys
-# from io import open
-# import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss, MSELoss
-
-
-#from transformers.modeling_utils import (WEIGHTS_NAME, CONFIG_NAME, PretrainedConfig, PreTrainedModel, prune_linear_layer, add_start_docstrings)
 from transformers import BertPreTrainedModel, BertModel
-
 
 class BertPointer(BertPreTrainedModel):
     def __init__(self, config):
@@ -46,8 +33,6 @@ class BertPointer(BertPreTrainedModel):
         self.aug_end_classifier = nn.Linear(config.hidden_size, 1, bias=False)
 
         self.label_classifier = nn.Linear(config.hidden_size, self.config.num_labels)
-
-        #self.apply(self.init_weights)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, position_ids=None, head_mask=None,):
         # run through bert

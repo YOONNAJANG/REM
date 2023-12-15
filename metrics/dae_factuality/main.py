@@ -3,13 +3,11 @@ import json
 import logging
 import os
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
-from torch.utils.data.distributed import DistributedSampler
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from tqdm import tqdm, trange
-import csv
 from sklearn.utils.extmath import softmax
 from transformers import glue_compute_metrics as compute_metrics
 import utils
@@ -102,8 +100,8 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
 
         with torch.no_grad():
             input_ids, attention, token_ids, child, head = batch[0], batch[1], batch[2], batch[3], batch[4]
-            dep_labels, num_dependency, arcs, arc_labels = batch[5], batch[6], batch[7], batch[8]
-            arc_label_lengths, sent_labels = batch[9], batch[10]
+            dep_labels, arc_labels = batch[5], batch[8]
+            arc_label_lengths = batch[9]
 
             inputs = {'input_ids': input_ids, 'attention': attention, 'token_ids': token_ids, 'child': child,
                       'head': head, 'dep_labels': dep_labels, 'arcs': arc_labels,
@@ -156,7 +154,6 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
     preds = np.argmax(preds, axis=1)
 
     result = compute_metrics_intermediate(preds, out_label_ids)
-    print(result)
 
     output_eval_file = os.path.join(eval_output_dir, "eval_results.txt")
     with open(output_eval_file, "a") as writer:
@@ -228,7 +225,7 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
         except ValueError:
             logger.info("  Starting fine-tuning.")
 
-    tr_loss, tr_loss_sent, logging_loss, logging_loss_sent = 0.0, 0.0, 0.0, 0.0
+    tr_loss, logging_loss = 0.0, 0.0
 
     model.zero_grad()
     train_iterator = trange(
@@ -252,8 +249,8 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
 
             batch = tuple(t.to(args.device) for t in batch)
             input_ids, attention, token_ids, child, head = batch[0], batch[1], batch[2], batch[3], batch[4]
-            dep_labels, num_dependency, arcs, arc_labels = batch[5], batch[6], batch[7], batch[8]
-            arc_label_lengths, sent_labels = batch[9], batch[10]
+            dep_labels, arc_labels = batch[5], batch[8]
+            arc_label_lengths = batch[9]
 
             inputs = {'input_ids': input_ids, 'attention': attention, 'token_ids': token_ids, 'child': child,
                       'head': head, 'dep_labels': dep_labels, 'arcs': arc_labels,
@@ -292,17 +289,14 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
                     logs["loss_dep"] = loss_scalar_dep
                     logging_loss = tr_loss
 
-                    print(json.dumps({**logs, **{"step": global_step}}))
                     logger.info(json.dumps({**logs, **{"step": global_step}}))
 
                     preds = preds.reshape(-1, 2)
                     preds = softmax(preds)
                     preds = np.argmax(preds, axis=1)
-                    res_train = compute_metrics_intermediate(preds, labels)
                     preds = None
                     labels = None
 
-                    print(res_train)
                     # Evaluation
                     result = evaluate(args, model, tokenizer)
                     results.update(result)
@@ -424,8 +418,6 @@ def main():
         os.makedirs(args.output_dir)
 
     device = torch.device("cuda", args.gpu_device)
-    #device = torch.device("cuda")
-    print(device)
     args.device = device
 
     # Setup logging
@@ -441,7 +433,6 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
 
     if args.input_dir is not None:
-        print('loading model')
         tokenizer = tokenizer_class.from_pretrained(args.input_dir)
         model = model_class.from_pretrained(args.input_dir)
     else:

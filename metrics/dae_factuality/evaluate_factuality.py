@@ -1,11 +1,7 @@
 import argparse
-import os
 import json
 import numpy as np
 import torch
-import sys
-#print(os.getcwd())
-sys.path.append('/home/data/yoonna/Refiner/metrics/dae_factuality')
 import utils
 from sklearn.utils.extmath import softmax
 from preprocessing_utils import get_tokens, get_relevant_deps_and_context
@@ -73,9 +69,9 @@ def score_example_single_context(decode_text, input_text, model, tokenizer, args
         inputs = {'input_ids': input_ids, 'attention': attention, 'token_ids': token_ids, 'child': child, 'head': head,
                   'dep_labels': dep_labels, 'arcs': arc_labels, 'arc_label_lengths': arc_label_lengths,
                   'device': args.device}
-        # print('inputs: ', inputs['input_ids'])
+        
         outputs = model(**inputs)
-        tmp_eval_loss, logits = outputs[:2]
+        _, logits = outputs[:2]
         preds = logits.detach().cpu().numpy()
 
         f_out = open('test.txt', 'a')
@@ -150,12 +146,8 @@ def main():
     device = torch.device("cuda", args.gpu_device)
     args.device = device
 
-    print(args.input_dir)
-    if not os.path.exists(args.input_dir):
-        print('Check model location')
-
     args.model_type = args.model_type.lower()
-    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
+    _, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
 
     tokenizer = tokenizer_class.from_pretrained(args.input_dir)
     model = model_class.from_pretrained(args.input_dir)
@@ -175,20 +167,14 @@ def main():
             article_sent = ex['article_sent']
             correct_sent = ex['correct_sent']
             incorrect_sent = ex['incorrect_sent']
-            print('article sent: ', article_sent)
-            print('corerct sent: ', correct_sent)
-            print('incorrect sent: ', incorrect_sent)
+            
             score1 = score_example_single_context(correct_sent, article_sent, model, tokenizer, args)
             score2 = score_example_single_context(incorrect_sent, article_sent, model, tokenizer, args)
-            print('score1: ', score1, 'score2: ', score2)
+            
             if score1 > score2:
                 correct += 1
 
             tot += 1
-
-        print(correct)
-        print(tot)
-        print(correct / tot)
 
     elif args.test_type == 'para':
         test_file = json.load(open('../resources/test_sets/dae_test_paranmt/paraphrase_test.json'))
@@ -211,10 +197,6 @@ def main():
                 correct += 1
 
             tot += 1
-
-        print(correct)
-        print(tot)
-        print(correct / tot)
 
 
 if __name__ == "__main__":
