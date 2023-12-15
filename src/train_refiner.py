@@ -61,6 +61,7 @@ class Model(LightningModule):
 
             self.model.load_state_dict(self.checkpoint_loaded, strict=False)
 
+
     def embed_inputs(self, queries):
         bz = queries.shape[0] #batchsize
         queries_for_embedding = queries.clone()
