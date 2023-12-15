@@ -17,7 +17,7 @@ output_dir=output/
 
 
 ##BART base focus
-CUDA_VISIBLE_DEVICES=0 python src/train_refiner.py --ner_coef 0.3 --epochs 100 --pretrained_model facebook/bart-base --lr 6.25e-5 --data_type focus --output_dir ${output_dir}/bart_base_focus --train_path ${focus_train_path} --train_cache_path ${focus_train_cache_path} --dev_path ${focus_dev_path} --dev_cache_path ${focus_dev_cache_path}
+CUDA_VISIBLE_DEVICES=0 python train_refiner.py --ner_coef 0.3 --epochs 100 --pretrained_model facebook/bart-base --lr 6.25e-5 --data_type focus --output_dir ${output_dir}/bart_base_focus --train_path ${focus_train_path} --train_cache_path ${focus_train_cache_path} --dev_path ${focus_dev_path} --dev_cache_path ${focus_dev_cache_path}
 #BART base wow
 #CUDA_VISIBLE_DEVICES=0 python src/train_refiner.py --ner_coef 0.7 --epochs 100 --pretrained_model facebook/bart-base --lr 6.25e-5 --data_type wow --output_dir ${output_dir}/bart_base_wow --train_path ${wow_train_path} --train_cache_path ${wow_train_cache_path} --dev_path ${wow_dev_path} --dev_cache_path ${wow_dev_cache_path}
 ##BART base cmudog
