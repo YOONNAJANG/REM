@@ -228,12 +228,12 @@ class Model(LightningModule):
 def main():
     parser = ArgumentParser()
     parser.add_argument("--data_type", type=str, default="focus", help="{focus, wow, cmudog}")
-    parser.add_argument("--train_path", type=str, default="data/focus")
-    parser.add_argument("--train_cache_path", type=str, default="data/focus")
-    parser.add_argument("--dev_path", type=str, default="data/focus")
-    parser.add_argument("--dev_cache_path", type=str, default="data/focus")
+    parser.add_argument("--train_path", type=str, default="")
+    parser.add_argument("--train_cache_path", type=str, default="")
+    parser.add_argument("--dev_path", type=str, default="data/FoCus")
+    parser.add_argument("--dev_cache_path", type=str, default="data/FoCus")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
-    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base, t5-small
+    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pretraind_model path") #facebook/bart-base, facebook/bart-large
     parser.add_argument("--checkpoint", type=str, default="", help="checkpoint path")
     parser.add_argument("--train_batch_size", type=int, default=16)
     parser.add_argument("--valid_batch_size", type=int, default=8)
@@ -286,8 +286,8 @@ def main():
 
 
     print(":: Start Training ::")
-    wandb.init(project='Refiner', reinit=True, config=args, settings=wandb.Settings(start_method='fork'))
-    wandb_logger = WandbLogger(project='Refiner')
+    wandb.init(project='REM', reinit=True, config=args, settings=wandb.Settings(start_method='fork'))
+    wandb_logger = WandbLogger(project='REM')
     wandb.watch(model, log_freq=20)
 
     trainer_args = {

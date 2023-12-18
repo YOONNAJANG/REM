@@ -60,15 +60,9 @@ class Model(LightningModule):
         from transformers import AutoTokenizer, BartConfig, BartTokenizer
         from transformers import BartForConditionalGeneration
 
-        if "bart" in self.hparams.pretrained_model:
-            from refiner_modules import BartEncDec as model
-            from transformers import BartConfig as config
-            from transformers import BartForConditionalGeneration as congenmodel
-        else:
-            from refiner_modules import T5EncDec as model
-            from transformers import T5Config as config
-            from transformers import T5ForConditionalGeneration as congenmodel
-
+        from refiner_modules import BartEncDec as model
+        from transformers import BartConfig as config
+        from transformers import BartForConditionalGeneration as congenmodel
 
         self.config = config.from_pretrained(self.hparams.pretrained_model)
         self.model = model.from_pretrained(self.hparams.pretrained_model, config=self.config)
@@ -136,45 +130,22 @@ class Model(LightningModule):
         results = self.step(inputs, batch_idx)
         
         input_text = self.tokenizer.batch_decode(input_ids, skip_special_tokens=False)
-        if 'bart' in self.hparams.pretrained_model:
-            if self.hparams.data_type == "focus":
-                knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
-                knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
-                persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
-                persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
-                knowledge = input_ids[:, knowledge_sp_idx + 1:persona_sp_idx]
-                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
-            else:
-                knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
-                knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
-                human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
-                human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
-                knowledge = input_ids[:, knowledge_sp_idx + 1:human_sp_idx]
-                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
-
+        if self.hparams.data_type == "focus":
+            knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+            knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
+            persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
+            persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
+            knowledge = input_ids[:, knowledge_sp_idx + 1:persona_sp_idx]
+            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
         else:
-            if self.hparams.data_type == "focus":
-                colon_id = self.tokenizer.convert_tokens_to_ids(':')
-                colon_idx = (input_ids == colon_id).nonzero(as_tuple=True)[1][0]
-                persona_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.persona_token)
-                persona_sp_idx = (input_ids == persona_sp_id).nonzero(as_tuple=True)[1][0]
-                knowledge = input_ids[:, colon_idx + 1:persona_sp_idx]
-                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
-            elif self.hparams.data_type == "wow":
-                colon_id = self.tokenizer.convert_tokens_to_ids(':')
-                colon_idx = (input_ids == colon_id).nonzero(as_tuple=True)[1][0]
-                human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
-                human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
-                knowledge = input_ids[:, colon_idx + 1:human_sp_idx]
-                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
-            else:#cmu
-                knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
-                knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
-                human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
-                human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
-                knowledge = input_ids[:, knowledge_sp_idx + 1:human_sp_idx]
-                knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
-        
+            knowledge_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.knowledge_token)
+            knowledge_sp_idx = (input_ids == knowledge_sp_id).nonzero(as_tuple=True)[1][0]
+            human_sp_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.human_token)
+            human_sp_idx = (input_ids == human_sp_id).nonzero(as_tuple=True)[1][0]
+            knowledge = input_ids[:, knowledge_sp_idx + 1:human_sp_idx]
+            knowledge = self.tokenizer.decode(knowledge.squeeze(0).tolist(), skip_special_tokens=False)
+
+
         before_refine = input_text[0].split("<human>")[-1]
 
         # DAE
@@ -610,8 +581,8 @@ def main():
     parser.add_argument("--flag", type=str, default="", help="add description of the output file")
     parser.add_argument("--checkpoint", type=str, default="", help="Path of the model checkpoint")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
-    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pre-trained model path among {facebook/bart-base, t5-base, allenai/led-base-16384, facebook/bart-large, t5-large, allenai/led-large-16384}"") #facebook/bart-base")
-    parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path") #facebook/bart-base
+    parser.add_argument("--pretrained_model", type=str, default="facebook/bart-base", help="pre-trained model path among {facebook/bart-base, facebook/bart-large}")
+    parser.add_argument("--ckpt", type=str, default="facebook/bart-base", help="ckpt path")
     parser.add_argument("--test_batch_size", type=int, default=1, help="Batch size for testing")
     parser.add_argument("--max_history", type=int, default=1, help="Number of previous exchanges to keep in history")
     parser.add_argument("--random_seed", type=int, default=644128)
@@ -626,8 +597,8 @@ def main():
                         help="Nucleus filtering (top-p) before sampling, default=1.0")
     parser.add_argument("--num_beams", type=int, default=1, help="{1, 2, 5, 10}, 1 for greedy decoding")
     parser.add_argument("--num_return_sequences", type=int, default=1, help="{1, 2, 5, 10}, 1 for 1 generated result")
-    parser.add_argument("--output_dir", type=str, default="/home/data/yoonna/focus_modeling/eval_output/focus_refiner/", help="default value for PLMs")
-    parser.add_argument("--dae_model", type=str, default="/home/data/yoonna/Refiner/metrics/dae_factuality/model/dae_w_syn_hallu", help="pre-trained dae model directory")
+    parser.add_argument("--output_dir", type=str, default="REM/output/", help="default value for PLMs")
+    parser.add_argument("--dae_model", type=str, default="Refiner/metrics/dae_factuality/model/dae_w_syn_hallu", help="pre-trained dae model directory")
     parser.add_argument("--dependency_type", type=str, default="enhancedDependencies")
     parser.add_argument("--seed", type=int, default=19981014, help="Seed")
     parser.add_argument("--no_repeat_ngram_size", type=int, default=2, help="no_repeat_ngram_size")
