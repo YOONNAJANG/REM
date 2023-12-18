@@ -3,10 +3,10 @@ focus_train_cache_path=../data/FoCus/train_cache.tar.gz
 focus_dev_path=../data/FoCus/dev.json
 focus_dev_cache_path=../data/FoCus/dev_cache.tar.gz
 
-wow_train_path=/home/data/yoonna/REM/data/WoW/train.json
-wow_train_cache_path=/home/data/yoonna/REM/data/WoW/train_cache.tar.gz
-wow_dev_path=/home/data/yoonna/REM/data/WoW/dev.json
-wow_dev_cache_path=/home/data/yoonna/REM/data/WoW/dev_cache.tar.gz
+wow_train_path=../data/WoW/train.json
+wow_train_cache_path=../data/WoW/train_cache.tar.gz
+wow_dev_path=../data/WoW/dev.json
+wow_dev_cache_path=../data/WoW/dev_cache.tar.gz
 
 cmu_train_path=../data/CMUDoG/train.json
 cmu_train_cache_path=../data/CMUDoG/train_cache.tar.gz
