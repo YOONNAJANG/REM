@@ -214,12 +214,12 @@ def get_dataset_refine_data(tokenizer, data_name, train_dataset_path, train_data
                     new_dialogue = dict()
                     new_dialogue["utterance"] = list()
                     for i, utt in enumerate(utterance):
-                        if data_name in ["wow", "cmudog"]:
-                            key = "dialogue" + str(i + 1)
-                        else:
-                            key = "dialogue" + str(i)
-                        if key not in utt.keys():
-                            continue
+                        # if data_name in ["wow", "cmudog"]:
+                        key = "dialogue" + str(i + 1)
+                        # else:
+                        #     key = "dialogue" + str(i)
+                        # if key not in utt.keys():
+                        #     continue
                         dial = utt[key]
                         dial_new = dict()
                         if data_name == "focus":
