@@ -107,7 +107,6 @@ def dataloader_train(args, data_name, tokenizer, train_path, train_cache_path, d
                 # if len(history[-1]) > 256:
                 #     continue
                 if data_name == "focus":
-
                     persona_cans = utt['persona_candidates']
                     persona_ner_label = utt['persona_ner_label']
                 else:
