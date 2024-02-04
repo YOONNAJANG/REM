@@ -4,3 +4,5 @@ metrics/dae_factuality/stanford-corenlp-latest.zip
 data/CMUDoG/
 data/FoCus/
 data/WoW/
+.idea
+myfolder
