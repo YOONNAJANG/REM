@@ -30,7 +30,7 @@ Thanks to open source libraries, such as [transformers](https://github.com/huggi
     $ pip install -r requirements.txt
 
 #### 4.Download DAE (dae_w_syn_hallu) [model checkpoint](https://drive.google.com/drive/folders/16NEL8T-JvhJPy7miVUbMELVE8ZOTYGit)
-Put the downloaded model in the directory `REM/metrics/dae_factuality/model/`.
+Place the downloaded model in the directory `REM/metrics/dae_factuality/model/`.
 
 As DAE relies on Stanford CoreNLP, the code below should be run in stanford-corenlp folder (Please refer the [documentation](https://stanfordnlp.github.io/CoreNLP/download.html) for help.):
     
